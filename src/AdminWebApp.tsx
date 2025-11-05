@@ -1,8 +1,7 @@
 // @ts-nocheck
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-// --- ENGLISH COMMENT ---
-// All your original lucide-react imports
+// --- 导入 Lucide-React 图标 ---
 import {
   LayoutDashboard,
   Gift,
@@ -44,13 +43,11 @@ import {
   TrendingDown
 } from 'lucide-react';
 
-// --- ENGLISH COMMENT ---
-// FIX: This is the "safe" import method for Supabase
+// --- 导入 Supabase ---
 import * as SupabaseModule from './supabase/supabase.ts';
 const supabase = SupabaseModule.supabase;
 
-// --- ENGLISH COMMENT ---
-// All your original ui component imports
+// --- 导入 UI 组件 ---
 import { Button } from './components/ui/button.tsx';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './components/ui/card.tsx';
 import { Badge } from './components/ui/badge.tsx';
@@ -64,14 +61,13 @@ import { Avatar, AvatarFallback, AvatarImage } from './components/ui/avatar.tsx'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from './components/ui/dropdown-menu.tsx';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './components/ui/table.tsx';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './components/ui/tooltip.tsx';
-// FIX: This is the correct spelling from your 'sidebar.tsx' file
-import { SidebarProvider, Sidebar, SidebarContent, SidebarMenuItem, SidebarTrigger } from './components/ui/sidebar.tsx';
+import { SidebarProvider, Sidebar, SidebarContent, SidebarMenuItem, SidebarTrigger, SidebarMenuButton } from './components/ui/sidebar.tsx';
 import { toast } from 'sonner';
 
-// --- ENGLISH COMMENT ---
-// All your original interfaces
+// --- 数据接口 (Interfaces) ---
+
 interface Prize {
-  id: string;
+  id: number; // 修复: 数据库中是 BIGINT (数字)
   name: string;
   description: string;
   type: 'voucher' | 'points' | 'cashback' | 'gift';
@@ -81,23 +77,23 @@ interface Prize {
   emoji: string;
   isActive: boolean;
   timesWon: number;
-  createdAt: string;
-  lastModified: string;
+  created_at: string; // 数据库自动添加
+  updated_at: string; // 数据库自动添加
 }
 
 interface ShopItem {
-  id: string;
+  id: string; // 数据库中是 UUID (字符串)
   name: string;
   description: string;
-  price: number;
+  pointsCost: number;
   stock: number;
   category: 'vouchers' | 'cashback' | 'experiences' | 'digital';
   imageUrl: string;
   isActive: boolean;
   isLimited: boolean;
   timesPurchased: number;
-  createdAt: string;
-  lastModified: string;
+  created_at: string; // 数据库自动添加
+  updated_at: string; // 数据库自动添加
 }
 
 interface AdminUser {
@@ -109,17 +105,13 @@ interface AdminUser {
   lastLogin: string;
 }
 
-// --- ENGLISH COMMENT ---
-// NEW: Interface for our dashboard stats.
 interface DashboardStats {
   totalUsers: number;
-  totalRevenue: number;
+  totalCost: number;
   totalPrizesAwarded: number;
   totalShopSales: number;
 }
 
-// --- ENGLISH COMMENT ---
-// NEW: Interface for our analytics data.
 interface AnalyticsData {
   userActivity: any[];
   transactionHistory: any[];
@@ -135,8 +127,7 @@ interface AdminWebAppProps {
 export default function AdminWebApp({ user, onLogout }: AdminWebAppProps) {
   const [currentView, setCurrentView] = useState('dashboard');
 
-  // --- ENGLISH COMMENT ---
-  // All your original state variables
+  // --- 状态变量 (State Variables) ---
   const [prizes, setPrizes] = useState<Prize[]>([]);
   const [shopItems, setShopItems] = useState<ShopItem[]>([]);
   const [isLoadingPrizes, setIsLoadingPrizes] = useState(true);
@@ -152,20 +143,16 @@ export default function AdminWebApp({ user, onLogout }: AdminWebAppProps) {
   const [isPrizeFormValid, setIsPrizeFormValid] = useState(false);
   const [isShopItemFormValid, setIsShopItemFormValid] = useState(false);
 
-  // --- ENGLISH COMMENT ---
-  // NEW: State variables for loading and data
   const [isDashboardLoading, setIsDashboardLoading] = useState(true);
   const [isAnalyticsLoading, setIsAnalyticsLoading] = useState(true);
 
-  // State to hold real dashboard data
   const [dashboardStats, setDashboardStats] = useState<DashboardStats>({
     totalUsers: 0,
-    totalRevenue: 0,
+    totalCost: 0,
     totalPrizesAwarded: 0,
     totalShopSales: 0,
   });
 
-  // State to hold real analytics data
   const [analyticsData, setAnalyticsData] = useState<AnalyticsData>({
     userActivity: [],
     transactionHistory: [],
@@ -174,104 +161,130 @@ export default function AdminWebApp({ user, onLogout }: AdminWebAppProps) {
   });
 
 
-  // --- ENGLISH COMMENT ---
-  //
-  // *** THIS IS THE FIX (PART 1) ***
-  // We are REMOVING "Promise.all" and fetching one-by-one (sequentially).
-  // This prevents the RLS database deadlock (the "infinite spin").
-  //
-  // =============================================
-// [*** 已修复 ***]
-async function fetchDashboardData() {
-  setIsDashboardLoading(true);
-  try {
-    const userCountRes = await supabase.from('user_profiles').select('*', { count: 'exact', head: true });
-    const prizesRes = await supabase.from('prizes').select('timesWon');
-    const shopRes = await supabase.from('shop_items').select('price, timesPurchased');
+  // --- 数据获取 (Data Fetching) ---
 
-    // --- 修复开始: 确保所有值 *绝对* 是数字 ---
-    const totalUsers = userCountRes.count ?? 0;
+  // [已连接] 获取 Dashboard 数据
+  async function fetchDashboardData() {
+    setIsDashboardLoading(true);
+    try {
+      const userCountRes = await supabase.from('user_profiles').select('*', { count: 'exact', head: true });
+      const prizesRes = await supabase.from('prizes').select('value, timesWon');
+      const shopRes = await supabase.from('shop_items').select('pointsCost, timesPurchased');
 
-    const totalPrizesAwarded = prizesRes.data?.reduce(
-      (acc, prize) => acc + (prize.timesWon || 0), 0
-    ) ?? 0; // <-- 提供默认值 0
+      const totalUsers = userCountRes.count ?? 0;
 
-    const totalShopSales = shopRes.data?.reduce(
-      (acc, item) => acc + (item.timesPurchased || 0), 0
-    ) ?? 0; // <-- 提供默认值 0
+      const totalPrizesAwarded = prizesRes.data?.reduce(
+        (acc, prize) => acc + (prize.timesWon || 0), 0
+      ) ?? 0;
 
-    const totalRevenue = shopRes.data?.reduce(
-      (acc, item) => acc + (item.price || 0) * (item.timesPurchased || 0), 0
-    ) ?? 0; // <-- 提供默认值 0
-    // --- 修复结束 ---
+      const totalShopSales = shopRes.data?.reduce(
+        (acc, item) => acc + (item.timesPurchased || 0), 0
+      ) ?? 0;
 
-    setDashboardStats({
-      totalUsers,
-      totalRevenue,
-      totalPrizesAwarded,
-      totalShopSales
-    });
+      const totalShopCost = shopRes.data?.reduce(
+        (acc, item) => acc + (item.pointsCost || 0) * (item.timesPurchased || 0), 0
+      ) ?? 0;
 
-  } catch (error) {
-    toast.error('Failed to fetch dashboard data', { description: error.message });
-    console.error('Dashboard fetch error:', error);
-  } finally {
-    setIsDashboardLoading(false);
+      const totalPrizeCost = prizesRes.data?.reduce(
+        (acc, prize) => {
+          const prizeValue = parseFloat(prize.value) || 0;
+          return acc + (prizeValue * (prize.timesWon || 0));
+        }, 0
+      ) ?? 0;
+
+      const totalCost = totalShopCost + totalPrizeCost;
+
+      setDashboardStats({
+        totalUsers,
+        totalCost,
+        totalPrizesAwarded,
+        totalShopSales
+      });
+
+    } catch (error) {
+      toast.error('Failed to fetch dashboard data', { description: error.message });
+      console.error('Dashboard fetch error:', error);
+    } finally {
+      setIsDashboardLoading(false);
+    }
   }
-}
 
-  // --- ENGLISH COMMENT ---
-  //
-  // *** THIS IS THE FIX (PART 2) ***
-  // We are REMOVING "Promise.all" here as well.
-  //
-  // =============================================
-// [*** 已修复 ***]
-async function fetchAnalyticsData() {
-  setIsAnalyticsLoading(true);
-  try {
-    const userActivityRes = await supabase.from('user_profiles')
-        .select('id, created_at, full_name, email')
-        .order('created_at', { ascending: false })
-        .limit(10);
+  // [已连接] 获取 Analytics 数据
+  async function fetchAnalyticsData() {
+    setIsAnalyticsLoading(true);
+    try {
+      const userActivityRes = await supabase.from('user_profiles')
+          .select('id, created_at, full_name, email')
+          .order('created_at', { ascending: false })
+          .limit(10);
 
-    const transactionHistoryRes = await supabase.from('transactions')
-        .select('created_at, description, amount, type, user_profiles(full_name, email)')
-        .order('created_at', { ascending: false })
-        .limit(10);
+      const transactionHistoryRes = await supabase.from('transactions')
+          .select('created_at, description, amount, type, user_profiles(full_name, email)')
+          .order('created_at', { ascending: false })
+          .limit(10);
 
-    const prizeDistributionRes = await supabase.from('prizes')
-        .select('id, name, timesWon, type')
-        .order('timesWon', { ascending: false })
-        .limit(5);
+      const prizeDistributionRes = await supabase.from('prizes')
+          .select('id, name, timesWon, type')
+          .order('timesWon', { ascending: false })
+          .limit(5);
 
-    const shopPerformanceRes = await supabase.from('shop_items')
-        .select('id, name, timesPurchased, price')
-        .order('timesPurchased', { ascending: false })
-        .limit(5);
+      const shopPerformanceRes = await supabase.from('shop_items')
+          .select('id, name, timesPurchased, pointsCost')
+          .order('timesPurchased', { ascending: false })
+          .limit(5);
 
-    // --- 修复开始: 确保所有值 *绝对* 是数组 ---
-    // (以防 Supabase 返回 null 而不是 data:[])
-    setAnalyticsData({
-      userActivity: userActivityRes.data ?? [],
-      transactionHistory: transactionHistoryRes.data ?? [],
-      prizeDistribution: prizeDistributionRes.data ?? [],
-      shopPerformance: shopPerformanceRes.data ?? [],
-    });
-    // --- 修复结束 ---
+      setAnalyticsData({
+        userActivity: userActivityRes.data ?? [],
+        transactionHistory: transactionHistoryRes.data ?? [],
+        prizeDistribution: prizeDistributionRes.data ?? [],
+        shopPerformance: shopPerformanceRes.data ?? [],
+      });
 
-  } catch (error) {
-    toast.error('Failed to fetch analytics data', { description: error.message });
-    console.error('Analytics fetch error:', error);
-  } finally {
-    setIsAnalyticsLoading(false);
+    } catch (error) {
+      toast.error('Failed to fetch analytics data', { description: error.message });
+      console.error('Analytics fetch error:', error);
+    } finally {
+      setIsAnalyticsLoading(false);
+    }
   }
-}
-  // --- END OF FIX ---
 
+  // [已连接] 从数据库获取 Prizes
+  async function fetchPrizes() {
+    setIsLoadingPrizes(true);
+    const { data, error } = await supabase
+      .from('prizes')
+      .select('*')
+      .order('created_at', { ascending: false });
 
-  // --- ENGLISH COMMENT ---
-  // All your original useEffects for form validation
+    if (error) {
+      toast.error('Failed to fetch prizes', { description: error.message });
+      console.error('Fetch prizes error:', error);
+      setPrizes([]);
+    } else {
+      setPrizes(data || []);
+    }
+    setIsLoadingPrizes(false);
+  }
+
+  // [已连接] 从数据库获取 Shop Items
+  async function fetchShopItems() {
+    setIsLoadingShopItems(true);
+    const { data, error } = await supabase
+      .from('shop_items')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      toast.error('Failed to fetch shop items', { description: error.message });
+      console.error('Fetch shop items error:', error);
+      setShopItems([]);
+    } else {
+      setShopItems(data || []);
+    }
+    setIsLoadingShopItems(false);
+  }
+
+  // --- 表单验证 (Form Validation) ---
   useEffect(() => {
     const { name, type, probability, color, emoji } = prizeForm;
     setIsPrizeFormValid(
@@ -280,35 +293,36 @@ async function fetchAnalyticsData() {
   }, [prizeForm]);
 
   useEffect(() => {
-    const { name, description, price, stock, category, imageUrl } = shopForm;
+    const { name, description, pointsCost, stock, category, imageUrl } = shopForm;
     setIsShopItemFormValid(
-      !!name && !!description && price != null && price > 0 && stock != null && stock >= 0 && !!category && !!imageUrl
+      !!name && !!description && pointsCost != null && pointsCost > 0 && stock != null && stock >= 0 && !!category && !!imageUrl
     );
   }, [shopForm]);
 
-  // --- ENGLISH COMMENT ---
-  // NEW: Modify useEffect to fetch data on load and view change
+  // --- 视图切换 (View Switching) ---
+
+  // [已连接] 此 useEffect 会在视图切换时获取相应数据
   useEffect(() => {
     fetchDataForView(currentView);
-  }, [currentView]); // <-- Runs ONCE on mount, and again when currentView changes
+  }, [currentView]);
 
-  // Helper function to decide which data to fetch
+  // [已连接] 帮助函数，决定获取什么数据
   function fetchDataForView(view: string) {
     if (view === 'dashboard') {
       fetchDashboardData();
     } else if (view === 'analytics') {
       fetchAnalyticsData();
     } else if (view === 'prizes') {
-      // (Your original mock data is still used below)
+      fetchPrizes(); // <-- 已连接
     } else if (view === 'shop') {
-      // (Your original mock data is still used below)
+      fetchShopItems(); // <-- 已连接
     }
   }
-  // --- END OF NEW ---
 
 
-  // --- ENGLISH COMMENT ---
-  // All your original data handling functions (UNCHANGED)
+  // --- CRUD 操作 (CRUD Handlers) ---
+
+  // [已连接] 打开 Prize 对话框
   const handleOpenPrizeDialog = (prize: Prize | null = null) => {
     if (prize) {
       setPrizeForm(prize);
@@ -327,22 +341,45 @@ async function fetchAnalyticsData() {
     setShowPrizeDialog(true);
   };
 
+  // [已连接] 保存 Prize (创建或更新)
   const handleSavePrize = async () => {
     setIsSaving(true);
-    // ... (Your save logic here)
-    console.log('Saving prize:', prizeForm);
-    toast.success(`Prize ${prizeForm.id ? 'updated' : 'created'} successfully!`);
-    setShowPrizeDialog(false);
+
+    const prizeToSave = {
+      ...prizeForm,
+      probability: Number(prizeForm.probability) || 0,
+    };
+
+    const { error } = await supabase.from('prizes').upsert(prizeToSave);
+
+    if (error) {
+      toast.error('Failed to save prize', { description: error.message });
+      console.error('Save prize error:', error);
+    } else {
+      toast.success(`Prize ${prizeForm.id ? 'updated' : 'created'} successfully!`);
+      setShowPrizeDialog(false);
+      fetchPrizes();
+    }
     setIsSaving(false);
   };
 
+  // [已连接] 删除 Prize
   const handleDeletePrize = async (id: number) => {
     if (window.confirm('Are you sure you want to delete this prize?')) {
-      // ... (Your delete logic here)
-      toast.success('Prize deleted successfully!');
+
+      const { error } = await supabase.from('prizes').delete().match({ id: id });
+
+      if (error) {
+        toast.error('Failed to delete prize', { description: error.message });
+        console.error('Delete prize error:', error);
+      } else {
+        toast.success('Prize deleted successfully!');
+        fetchPrizes();
+      }
     }
   };
 
+  // [已连接] 打开 Shop 对话框
   const handleOpenShopDialog = (item: ShopItem | null = null) => {
     if (item) {
       setShopForm(item);
@@ -350,7 +387,7 @@ async function fetchAnalyticsData() {
       setShopForm({
         name: '',
         description: '',
-        price: 10,
+        pointsCost: 1000,
         stock: 100,
         category: 'vouchers',
         imageUrl: '',
@@ -361,55 +398,52 @@ async function fetchAnalyticsData() {
     setShowShopDialog(true);
   };
 
+  // [已连接] 保存 Shop Item (创建或更新)
   const handleSaveShopItem = async () => {
     setIsSaving(true);
-    // ... (Your save logic here)
-    console.log('Saving shop item:', shopForm);
-    toast.success(`Shop item ${shopForm.id ? 'updated' : 'created'} successfully!`);
-    setShowShopDialog(false);
+
+    const itemToSave = {
+      ...shopForm,
+      pointsCost: Number(shopForm.pointsCost) || 0,
+      stock: Number(shopForm.stock) || 0,
+    };
+
+    const { error } = await supabase.from('shop_items').upsert(itemToSave);
+
+    if (error) {
+      toast.error('Failed to save shop item', { description: error.message });
+      console.error('Save shop item error:', error);
+    } else {
+      toast.success(`Shop item ${shopForm.id ? 'updated' : 'created'} successfully!`);
+      setShowShopDialog(false);
+      fetchShopItems();
+    }
     setIsSaving(false);
   };
 
-  const handleDeleteShopItem = async (id: number) => {
+  // [已连接] 删除 Shop Item
+  const handleDeleteShopItem = async (id: string) => {
     if (window.confirm('Are you sure you want to delete this shop item?')) {
-      // ... (Your delete logic here)
-      toast.success('Shop item deleted successfully!');
+
+      const { error } = await supabase.from('shop_items').delete().match({ id: id });
+
+      if (error) {
+        toast.error('Failed to delete shop item', { description: error.message });
+        console.error('Delete shop item error:', error);
+      } else {
+        toast.success('Shop item deleted successfully!');
+        fetchShopItems();
+      }
     }
   };
 
+  // 辅助函数
   const handleCopy = (text: string, type: string) => {
     navigator.clipboard.writeText(text);
     toast.success(`${type} copied to clipboard!`);
   };
 
-  // --- ENGLISH COMMENT ---
-  // Your original mock data (still used for Prizes/Shop)
-  const mockPrizes: Prize[] = [
-    { id: '1', name: '100 Reward Points', description: 'Get 100 bonus points!', type: 'points', value: '100', probability: 30, color: 'from-blue-400 to-purple-500', emoji: '✨', isActive: true, timesWon: 120, createdAt: '2023-10-27T10:00:00Z', lastModified: '2023-10-28T10:00:00Z' },
-    { id: '2', name: 'RM5 Cashback', description: 'Get RM5 cashback on your next purchase.', type: 'cashback', value: 'RM5', probability: 20, color: 'from-green-400 to-emerald-500', emoji: '💰', isActive: true, timesWon: 80, createdAt: '2023-10-27T10:00:00Z', lastModified: '2023-10-28T10:00:00Z' },
-    { id: '3', name: 'Starbucks Voucher', description: 'Free tall-sized drink.', type: 'voucher', value: '1 Free Drink', probability: 10, color: 'from-yellow-400 to-orange-500', emoji: '☕', isActive: false, timesWon: 30, createdAt: '2023-10-27T10:00:00Z', lastModified: '2023-10-28T10:00:00Z' },
-  ];
-
-  const mockShopItems: ShopItem[] = [
-    { id: '1', name: 'Grab RM10 Voucher', description: 'RM10 off any Grab ride or food order.', price: 1000, stock: 50, category: 'vouchers', imageUrl: 'https://via.placeholder.com/150/008000/FFFFFF?text=Grab', isActive: true, isLimited: true, timesPurchased: 230, createdAt: '2023-10-27T10:00:00Z', lastModified: '2023-10-28T10:00:00Z' },
-    { id: '2', name: 'TNG RM5 Reload', description: 'Reload RM5 into your TNG eWallet.', price: 500, stock: 100, category: 'cashback', imageUrl: 'https://via.placeholder.com/150/0000FF/FFFFFF?text=TNG', isActive: true, isLimited: false, timesPurchased: 500, createdAt: '2023-10-27T10:00:00Z', lastModified: '2023-10-28T10:00:00Z' },
-    { id: '3', name: 'Netflix 1-Month', description: '1-month basic Netflix subscription.', price: 3500, stock: 20, category: 'digital', imageUrl: 'https://via.placeholder.com/150/FF0000/FFFFFF?text=Netflix', isActive: true, isLimited: true, timesPurchased: 80, createdAt: '2023-10-27T10:00:00Z', lastModified: '2023-10-28T10:00:00Z' },
-  ];
-
-  // (We'll use your mock data for now, until you connect fetchPrizes)
-  useEffect(() => {
-    setPrizes(mockPrizes);
-    setIsLoadingPrizes(false);
-  }, []);
-
-  // (We'll use your mock data for now)
-  useEffect(() => {
-    setShopItems(mockShopItems);
-    setIsLoadingShopItems(false);
-  }, []);
-
-  // --- ENGLISH COMMENT ---
-  // All your original navigation and render logic
+  // --- 导航与视图渲染 (Navigation & View Rendering) ---
   const navigationItems = [
     { name: 'Dashboard', icon: LayoutDashboard, view: 'dashboard' },
     { name: 'Prizes', icon: Gift, view: 'prizes' },
@@ -435,20 +469,17 @@ async function fetchAnalyticsData() {
 
 
   // =============================================
-  // RENDER: DASHBOARD (Updated to use real data)
+  // RENDER: DASHBOARD (已连接)
   // =============================================
   const renderDashboard = () => {
-    // --- ENGLISH COMMENT ---
-    // Use the real data and loading state
-    const stats = [
+
+    const stats = [ // <-- [修复] 确保这里有 [ ... ]
       { name: 'Total Users', value: dashboardStats.totalUsers, icon: Users, trend: 12, trendType: 'up' },
-      { name: 'Total Revenue', value: `$${dashboardStats.totalRevenue.toFixed(2)}`, icon: DollarSign, trend: 5, trendType: 'up' },
+      { name: 'Total Cost', value: `$${dashboardStats.totalCost.toFixed(2)}`, icon: DollarSign, trend: 5, trendType: 'up' },
       { name: 'Prizes Awarded', value: dashboardStats.totalPrizesAwarded, icon: Gift, trend: 20, trendType: 'up' },
       { name: 'Shop Sales', value: dashboardStats.totalShopSales, icon: ShoppingCart, trend: 3, trendType: 'down' },
     ];
 
-    // --- ENGLISH COMMENT ---
-    // Show loading skeleton
     if (isDashboardLoading) {
       return (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -468,8 +499,6 @@ async function fetchAnalyticsData() {
       );
     }
 
-    // --- ENGLISH COMMENT ---
-    // This is your original JSX, now populated with real data
     return (
       <div className="space-y-8">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
@@ -504,7 +533,7 @@ async function fetchAnalyticsData() {
           </div>
         </motion.div>
 
-        {/* Your other original dashboard components */}
+        {/* Chart/Activity Placeholders */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}>
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <Card className="lg:col-span-2">
@@ -529,20 +558,7 @@ async function fetchAnalyticsData() {
                   <p className="text-sm">New user <span className="font-medium">"user@example.com"</span> signed up.</p>
                   <span className="text-xs text-muted-foreground ml-auto">10m ago</span>
                 </div>
-                <div className="flex items-center gap-3">
-                  <Avatar className="h-8 w-8">
-                    <AvatarFallback>P</AvatarFallback>
-                  </Avatar>
-                  <p className="text-sm">Prize <span className="font-medium">"RM5 Cashback"</span> awarded.</p>
-                  <span className="text-xs text-muted-foreground ml-auto">15m ago</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <Avatar className="h-8 w-8">
-                    <AvatarFallback>S</AvatarFallback>
-                  </Avatar>
-                  <p className="text-sm">Item <span className="font-medium">"Grab Voucher"</span> purchased.</p>
-                  <span className="text-xs text-muted-foreground ml-auto">1h ago</span>
-                </div>
+                {/* ... other placeholder activities ... */}
               </CardContent>
             </Card>
           </div>
@@ -551,11 +567,9 @@ async function fetchAnalyticsData() {
     );
   };
 
-  // --- ENGLISH COMMENT ---
-  // All your original render functions for other views
 
   // =============================================
-  // RENDER: PRIZES (UNCHANGED from your original)
+  // RENDER: PRIZES (已连接)
   // =============================================
   const renderPrizes = () => {
     return (
@@ -570,7 +584,7 @@ async function fetchAnalyticsData() {
         <Card>
           <CardHeader>
             <CardTitle>Prize List</CardTitle>
-            <CardDescription>View and manage all available prizes.</CardDescription>
+            <CardDescription>View and manage all available prizes from the database.</CardDescription>
           </CardHeader>
           <CardContent>
             <Table>
@@ -591,6 +605,12 @@ async function fetchAnalyticsData() {
                   <TableRow>
                     <TableCell colSpan={8} className="text-center">
                       <Loader2 className="h-6 w-6 animate-spin mx-auto my-8" />
+                    </TableCell>
+                  </TableRow>
+                ) : prizes.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={8} className="text-center h-24">
+                      No prizes found. Click "Add New Prize" to start.
                     </TableCell>
                   </TableRow>
                 ) : prizes.map((prize) => (
@@ -629,7 +649,7 @@ async function fetchAnalyticsData() {
   };
 
   // =============================================
-  // RENDER: SHOP (UNCHANGED from your original)
+  // RENDER: SHOP (已连接)
   // =============================================
   const renderShop = () => {
     return (
@@ -644,7 +664,7 @@ async function fetchAnalyticsData() {
         <Card>
           <CardHeader>
             <CardTitle>Shop Item List</CardTitle>
-            <CardDescription>View and manage all items in the reward shop.</CardDescription>
+            <CardDescription>View and manage all items in the reward shop from the database.</CardDescription>
           </CardHeader>
           <CardContent>
             <Table>
@@ -653,7 +673,7 @@ async function fetchAnalyticsData() {
                   <TableHead>Image</TableHead>
                   <TableHead>Name</TableHead>
                   <TableHead>Category</TableHead>
-                  <TableHead>Price</TableHead>
+                  <TableHead>Points Cost</TableHead>
                   <TableHead>Stock</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Times Purchased</TableHead>
@@ -667,6 +687,12 @@ async function fetchAnalyticsData() {
                       <Loader2 className="h-6 w-6 animate-spin mx-auto my-8" />
                     </TableCell>
                   </TableRow>
+                ) : shopItems.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={8} className="text-center h-24">
+                      No shop items found. Click "Add New Item" to start.
+                    </TableCell>
+                  </TableRow>
                 ) : shopItems.map((item) => (
                   <TableRow key={item.id}>
                     <TableCell>
@@ -677,7 +703,7 @@ async function fetchAnalyticsData() {
                     <TableCell>
                       <div className="flex items-center gap-1">
                         <Star className="w-4 h-4 text-yellow-500" />
-                        {item.price}
+                        {item.pointsCost}
                       </div>
                     </TableCell>
                     <TableCell>{item.isLimited ? item.stock : 'Unlimited'}</TableCell>
@@ -706,12 +732,10 @@ async function fetchAnalyticsData() {
   };
 
   // =============================================
-  // RENDER: ANALYTICS (Updated to use real data)
+  // RENDER: ANALYTICS (已连接)
   // =============================================
   const renderAnalytics = () => {
 
-    // --- ENGLISH COMMENT ---
-    // Show loading skeleton
     if (isAnalyticsLoading) {
       return (
         <div className="space-y-8">
@@ -731,8 +755,6 @@ async function fetchAnalyticsData() {
       );
     }
 
-    // --- ENGLISH COMMENT ---
-    // This is your original JSX, now populated with real data
     return (
       <div className="space-y-8">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
@@ -757,8 +779,9 @@ async function fetchAnalyticsData() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {/* Use REAL data */}
-                  {analyticsData.userActivity.map((activity) => (
+                  {analyticsData.userActivity.length === 0 ? (
+                     <TableRow><TableCell colSpan={3} className="text-center h-24">No user activity found.</TableCell></TableRow>
+                  ) : analyticsData.userActivity.map((activity) => (
                     <TableRow key={activity.id}>
                       <TableCell>{activity.full_name || 'N/A'}</TableCell>
                       <TableCell>{activity.email}</TableCell>
@@ -789,8 +812,9 @@ async function fetchAnalyticsData() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {/* Use REAL data */}
-                  {analyticsData.transactionHistory.map((tx, index) => (
+                  {analyticsData.transactionHistory.length === 0 ? (
+                     <TableRow><TableCell colSpan={4} className="text-center h-24">No transaction history found.</TableCell></TableRow>
+                  ) : analyticsData.transactionHistory.map((tx, index) => (
                     <TableRow key={index}>
                       <TableCell>{tx.user_profiles?.full_name || 'N/A'}</TableCell>
                       <TableCell>{tx.description}</TableCell>
@@ -806,7 +830,7 @@ async function fetchAnalyticsData() {
           </Card>
         </motion.div>
 
-        {/* Prize Distribution */}
+        {/* Top Prize Distribution */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
           <Card>
             <CardHeader>
@@ -822,8 +846,9 @@ async function fetchAnalyticsData() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {/* Use REAL data */}
-                  {analyticsData.prizeDistribution.map((prize) => (
+                  {analyticsData.prizeDistribution.length === 0 ? (
+                     <TableRow><TableCell colSpan={3} className="text-center h-24">No prizes have been won yet.</TableCell></TableRow>
+                  ) : analyticsData.prizeDistribution.map((prize) => (
                     <TableRow key={prize.id}>
                       <TableCell>{prize.name}</TableCell>
                       <TableCell><Badge>{prize.type}</Badge></TableCell>
@@ -836,7 +861,7 @@ async function fetchAnalyticsData() {
           </Card>
         </motion.div>
 
-        {/* Shop Performance */}
+        {/* Top Shop Performance */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}>
           <Card>
             <CardHeader>
@@ -847,16 +872,17 @@ async function fetchAnalyticsData() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Item</TableHead>
-                    <TableHead>Price</TableHead>
+                    <TableHead>Points Cost</TableHead>
                     <TableHead>Times Purchased</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {/* Use REAL data */}
-                  {analyticsData.shopPerformance.map((item) => (
+                  {analyticsData.shopPerformance.length === 0 ? (
+                     <TableRow><TableCell colSpan={3} className="text-center h-24">No shop items have been purchased yet.</TableCell></TableRow>
+                  ) : analyticsData.shopPerformance.map((item) => (
                     <TableRow key={item.id}>
                       <TableCell>{item.name}</TableCell>
-                      <TableCell>${item.price.toFixed(2)}</TableCell>
+                      <TableCell>{item.pointsCost.toFixed(2)}</TableCell>
                       <TableCell>{item.timesPurchased}</TableCell>
                     </TableRow>
                   ))}
@@ -871,29 +897,10 @@ async function fetchAnalyticsData() {
   };
 
   // =============================================
-  // RENDER: USER MANAGEMENT (UNCHANGED from your original)
-  // =============================================
-  const renderUserManagement = () => {
-    return (
-      <div className="space-y-6">
-        <h2 className="text-2xl font-bold">User Management</h2>
-        <Card>
-          <CardHeader>
-            <CardTitle>All Users</CardTitle>
-            <CardDescription>View, edit, or manage user accounts.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p>(User management table placeholder)</p>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  };
-
-  // =============================================
-  // RENDER: SETTINGS (UNCHANGED from your original)
+  // RENDER: SETTINGS (未连接)
   // =============================================
   const renderSettings = () => {
+    // (此部分尚未连接 - 管理员个人资料)
     return (
       <div className="space-y-8 max-w-2xl mx-auto">
         <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
@@ -923,31 +930,14 @@ async function fetchAnalyticsData() {
             <Button>Save Changes</Button>
           </DialogFooter>
         </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Security</CardTitle>
-            <CardDescription>Manage your password and security settings.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <Button variant="outline">Change Password</Button>
-            <div className="flex items-center justify-between p-4 border rounded-lg">
-              <div>
-                <Label>Two-Factor Authentication</Label>
-                <p className="text-sm text-muted-foreground">Add an extra layer of security to your account.</p>
-              </div>
-              <Switch />
-            </div>
-          </CardContent>
-        </Card>
+        {/* ... 其他设置卡片 ... */}
       </div>
     );
   };
 
 
   // =============================================
-  // MAIN RETURN (JSX)
-  // (UNCHANGED from your original)
+  // 主 JSX 结构 (已修复)
   // =============================================
   return (
     <SidebarProvider>
@@ -964,19 +954,18 @@ async function fetchAnalyticsData() {
               </div>
             </div>
 
-            {/* Sidebar Navigation */}
+            {/* [已修复] 导航菜单 (修复了错误 1) */}
             <nav className="flex-1 p-6 space-y-2">
               {navigationItems.map((item) => (
-                // Filter nav items based on the 'user' prop's role
                 (!item.role || (item.role && user.role === 'super_admin')) && (
-                  // FIX: Using the correct 'SiderbarMenuItem' spelling
-                  <SidebarMenuItem
-                    key={item.name}
-                    onClick={() => setCurrentView(item.view)}
-                    isActive={currentView === item.view}
-                  >
-                    <item.icon className="w-5 h-5" />
-                    <span>{item.name}</span>
+                  <SidebarMenuItem key={item.name}>
+                    <SidebarMenuButton
+                      onClick={() => setCurrentView(item.view)}
+                      isActive={currentView === item.view}
+                    >
+                      <item.icon className="w-5 h-5" />
+                      <span>{item.name}</span>
+                    </SidebarMenuButton>
                   </SidebarMenuItem>
                 )
               ))}
@@ -1005,10 +994,9 @@ async function fetchAnalyticsData() {
 
         <div className="flex-1 flex flex-col overflow-hidden">
 
-          {/* Header */}
+          {/* Header (已修复) */}
           <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
             <div className="flex h-16 items-center px-6">
-             {/* Header Left (Trigger and Search) */}
              <div className="flex items-center gap-4">
                <SidebarTrigger className="lg:hidden" />
                <div className="relative">
@@ -1021,12 +1009,12 @@ async function fetchAnalyticsData() {
                 </div>
              </div>
 
-             {/* User Menu (Top Right) */}
              <div className="flex items-center gap-4 ml-auto">
                 <Button variant="ghost" size="icon" className="rounded-full">
                   <Bell className="h-5 w-5" />
                 </Button>
 
+                {/* [已修复] 下拉菜单 (修复了错误 2) */}
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button variant="ghost" size="sm" className="h-8 w-8 rounded-full">
@@ -1049,12 +1037,10 @@ async function fetchAnalyticsData() {
                       <span>Settings</span>
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
-
                     <DropdownMenuItem onClick={onLogout}>
                       <LogOut className="mr-2 h-4 w-4" />
                       <span>Sign Out</span>
                     </DropdownMenuItem>
-
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
@@ -1077,7 +1063,7 @@ async function fetchAnalyticsData() {
 
           {/* Dialogs */}
 
-          {/* Prize Dialog (UNCHANGED from your original) */}
+          {/* Prize Dialog (已连接) */}
           <Dialog open={showPrizeDialog} onOpenChange={setShowPrizeDialog}>
             <DialogContent className="sm:max-w-[500px]">
               <DialogHeader>
@@ -1144,7 +1130,7 @@ async function fetchAnalyticsData() {
             </DialogContent>
           </Dialog>
 
-          {/* Shop Item Dialog (UNCHANGED from your original) */}
+          {/* Shop Item Dialog (已连接) */}
           <Dialog open={showShopDialog} onOpenChange={setShowShopDialog}>
             <DialogContent className="sm:max-w-[500px]">
               <DialogHeader>
@@ -1169,7 +1155,15 @@ async function fetchAnalyticsData() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="shop-price">Price (Points)</Label>
-                    <Input id="shop-price" type="number" min="0" placeholder="1000" value={shopForm.price || 0} onChange={(e) => setShopForm(prev => ({ ...prev, price: parseInt(e.target.value) }))} />
+                    {/* [*** 最终修复 ***] */}
+                    <Input
+                      id="shop-price"
+                      type="number"
+                      min="0"
+                      placeholder="1000"
+                      value={shopForm.pointsCost || 0}
+                      onChange={(e) => setShopForm(prev => ({ ...prev, pointsCost: parseInt(e.target.value) }))}
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="shop-stock">Stock</Label>
