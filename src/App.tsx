@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { LoginPage } from './components/auth/LoginPage.tsx';
+import { AdminPasswordReset } from './components/auth/AdminPasswordReset.tsx';
 import AdminWebApp from './AdminWebApp.tsx';
 import { AppProvider } from './utils/AppContext.tsx';
 import { motion, AnimatePresence } from 'motion/react';
@@ -24,6 +25,7 @@ function AppContent() {
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [session, setSession] = useState<Session | null>(null);
+  const [currentPage, setCurrentPage] = useState<'login' | 'admin-reset-password'>('login');
 
   // --- ENGLISH COMMENT ---
   // THIS IS THE NEW STATE THAT WAS MISSING.
@@ -161,17 +163,27 @@ useEffect(() => {
         ) : (
           // --- 状态 2: 未登录 (Session 或 Profile 为 null) ---
           <motion.div
-            key="login"
+            key={currentPage}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.5 }}
           >
-            <LoginPage
-              onNavigate={(dest) => {
-                console.log('Navigate attempt to:', dest);
-              }}
-            />
+            {currentPage === 'admin-reset-password' ? (
+              <AdminPasswordReset
+                onNavigate={(dest) => {
+                  console.log('Navigate to:', dest);
+                  setCurrentPage(dest as 'login' | 'admin-reset-password');
+                }}
+              />
+            ) : (
+              <LoginPage
+                onNavigate={(dest) => {
+                  console.log('Navigate to:', dest);
+                  setCurrentPage(dest as 'login' | 'admin-reset-password');
+                }}
+              />
+            )}
           </motion.div>
         )}
       </AnimatePresence>
