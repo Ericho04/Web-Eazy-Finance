@@ -79,9 +79,6 @@ useEffect(() => {
   };
 }, []); // Empty dependency array is correct
 
-  // --- ENGLISH COMMENT ---
-  // THIS IS THE NEW FUNCTION THAT WAS MISSING.
-  // It fetches data from the 'admin_users' table in our database.
   async function fetchAdminProfile(user: User) {
     if (!user) return;
 
