@@ -784,23 +784,113 @@ export function AdminPanel({ onBack, user, defaultTab = 'overview' }: AdminPanel
           </DialogHeader>
           
           <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="prize-name">Name *</Label>
+            <div>
+              <Label htmlFor="prize-name">Name *</Label>
+              <Input
+                id="prize-name"
+                value={prizeForm.name || ''}
+                onChange={(e) => setPrizeForm(prev => ({ ...prev, name: e.target.value }))}
+                placeholder="Prize name"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="prize-emoji">Emoji</Label>
+              <div className="space-y-2">
+                <Select
+                  value={prizeForm.emoji}
+                  onValueChange={(value) => setPrizeForm(prev => ({ ...prev, emoji: value }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select an emoji">
+                      {prizeForm.emoji ? (
+                        <span className="text-2xl">{prizeForm.emoji}</span>
+                      ) : (
+                        "Select an emoji"
+                      )}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent className="max-h-[300px]">
+                    {/* Gifts & Prizes */}
+                    <div className="px-2 py-1.5 text-xs font-semibold text-gray-500">Gifts & Prizes</div>
+                    <SelectItem value="🎁"><span className="text-2xl mr-2">🎁</span> Gift Box</SelectItem>
+                    <SelectItem value="🎉"><span className="text-2xl mr-2">🎉</span> Party Popper</SelectItem>
+                    <SelectItem value="🎊"><span className="text-2xl mr-2">🎊</span> Confetti Ball</SelectItem>
+                    <SelectItem value="🏆"><span className="text-2xl mr-2">🏆</span> Trophy</SelectItem>
+                    <SelectItem value="🥇"><span className="text-2xl mr-2">🥇</span> 1st Place Medal</SelectItem>
+                    <SelectItem value="🥈"><span className="text-2xl mr-2">🥈</span> 2nd Place Medal</SelectItem>
+                    <SelectItem value="🥉"><span className="text-2xl mr-2">🥉</span> 3rd Place Medal</SelectItem>
+                    <SelectItem value="🎖️"><span className="text-2xl mr-2">🎖️</span> Military Medal</SelectItem>
+
+                    {/* Money & Finance */}
+                    <div className="px-2 py-1.5 text-xs font-semibold text-gray-500 mt-2">Money & Finance</div>
+                    <SelectItem value="💰"><span className="text-2xl mr-2">💰</span> Money Bag</SelectItem>
+                    <SelectItem value="💵"><span className="text-2xl mr-2">💵</span> Dollar Banknote</SelectItem>
+                    <SelectItem value="💴"><span className="text-2xl mr-2">💴</span> Yen Banknote</SelectItem>
+                    <SelectItem value="💶"><span className="text-2xl mr-2">💶</span> Euro Banknote</SelectItem>
+                    <SelectItem value="💷"><span className="text-2xl mr-2">💷</span> Pound Banknote</SelectItem>
+                    <SelectItem value="💳"><span className="text-2xl mr-2">💳</span> Credit Card</SelectItem>
+                    <SelectItem value="💎"><span className="text-2xl mr-2">💎</span> Gem Stone</SelectItem>
+                    <SelectItem value="🪙"><span className="text-2xl mr-2">🪙</span> Coin</SelectItem>
+
+                    {/* Food & Drinks */}
+                    <div className="px-2 py-1.5 text-xs font-semibold text-gray-500 mt-2">Food & Drinks</div>
+                    <SelectItem value="🍔"><span className="text-2xl mr-2">🍔</span> Hamburger</SelectItem>
+                    <SelectItem value="🍕"><span className="text-2xl mr-2">🍕</span> Pizza</SelectItem>
+                    <SelectItem value="🍗"><span className="text-2xl mr-2">🍗</span> Poultry Leg</SelectItem>
+                    <SelectItem value="🍰"><span className="text-2xl mr-2">🍰</span> Cake</SelectItem>
+                    <SelectItem value="🍩"><span className="text-2xl mr-2">🍩</span> Doughnut</SelectItem>
+                    <SelectItem value="🍦"><span className="text-2xl mr-2">🍦</span> Ice Cream</SelectItem>
+                    <SelectItem value="☕"><span className="text-2xl mr-2">☕</span> Coffee</SelectItem>
+                    <SelectItem value="🥤"><span className="text-2xl mr-2">🥤</span> Soft Drink</SelectItem>
+
+                    {/* Shopping */}
+                    <div className="px-2 py-1.5 text-xs font-semibold text-gray-500 mt-2">Shopping</div>
+                    <SelectItem value="🛍️"><span className="text-2xl mr-2">🛍️</span> Shopping Bags</SelectItem>
+                    <SelectItem value="🛒"><span className="text-2xl mr-2">🛒</span> Shopping Cart</SelectItem>
+                    <SelectItem value="🎫"><span className="text-2xl mr-2">🎫</span> Ticket</SelectItem>
+                    <SelectItem value="🏷️"><span className="text-2xl mr-2">🏷️</span> Label</SelectItem>
+
+                    {/* Entertainment */}
+                    <div className="px-2 py-1.5 text-xs font-semibold text-gray-500 mt-2">Entertainment</div>
+                    <SelectItem value="🎬"><span className="text-2xl mr-2">🎬</span> Movie Camera</SelectItem>
+                    <SelectItem value="🎮"><span className="text-2xl mr-2">🎮</span> Video Game</SelectItem>
+                    <SelectItem value="🎵"><span className="text-2xl mr-2">🎵</span> Music Note</SelectItem>
+                    <SelectItem value="🎸"><span className="text-2xl mr-2">🎸</span> Guitar</SelectItem>
+                    <SelectItem value="🎪"><span className="text-2xl mr-2">🎪</span> Circus Tent</SelectItem>
+
+                    {/* Stars & Magic */}
+                    <div className="px-2 py-1.5 text-xs font-semibold text-gray-500 mt-2">Stars & Magic</div>
+                    <SelectItem value="⭐"><span className="text-2xl mr-2">⭐</span> Star</SelectItem>
+                    <SelectItem value="✨"><span className="text-2xl mr-2">✨</span> Sparkles</SelectItem>
+                    <SelectItem value="🌟"><span className="text-2xl mr-2">🌟</span> Glowing Star</SelectItem>
+                    <SelectItem value="💫"><span className="text-2xl mr-2">💫</span> Dizzy</SelectItem>
+                    <SelectItem value="🔮"><span className="text-2xl mr-2">🔮</span> Crystal Ball</SelectItem>
+
+                    {/* Sports & Health */}
+                    <div className="px-2 py-1.5 text-xs font-semibold text-gray-500 mt-2">Sports & Health</div>
+                    <SelectItem value="⚽"><span className="text-2xl mr-2">⚽</span> Soccer Ball</SelectItem>
+                    <SelectItem value="🏀"><span className="text-2xl mr-2">🏀</span> Basketball</SelectItem>
+                    <SelectItem value="🎾"><span className="text-2xl mr-2">🎾</span> Tennis</SelectItem>
+                    <SelectItem value="💪"><span className="text-2xl mr-2">💪</span> Flexed Biceps</SelectItem>
+                    <SelectItem value="🧘"><span className="text-2xl mr-2">🧘</span> Yoga</SelectItem>
+
+                    {/* Technology */}
+                    <div className="px-2 py-1.5 text-xs font-semibold text-gray-500 mt-2">Technology</div>
+                    <SelectItem value="📱"><span className="text-2xl mr-2">📱</span> Mobile Phone</SelectItem>
+                    <SelectItem value="💻"><span className="text-2xl mr-2">💻</span> Laptop</SelectItem>
+                    <SelectItem value="⌚"><span className="text-2xl mr-2">⌚</span> Watch</SelectItem>
+                    <SelectItem value="🎧"><span className="text-2xl mr-2">🎧</span> Headphone</SelectItem>
+                    <SelectItem value="📷"><span className="text-2xl mr-2">📷</span> Camera</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-gray-500">Or enter a custom emoji below:</p>
                 <Input
-                  id="prize-name"
-                  value={prizeForm.name || ''}
-                  onChange={(e) => setPrizeForm(prev => ({ ...prev, name: e.target.value }))}
-                  placeholder="Prize name"
-                />
-              </div>
-              <div>
-                <Label htmlFor="prize-emoji">Emoji</Label>
-                <Input
-                  id="prize-emoji"
+                  id="prize-emoji-custom"
                   value={prizeForm.emoji || ''}
                   onChange={(e) => setPrizeForm(prev => ({ ...prev, emoji: e.target.value }))}
-                  placeholder="🎁"
+                  placeholder="🎁 Type any emoji"
+                  className="text-2xl text-center"
                 />
               </div>
             </div>
