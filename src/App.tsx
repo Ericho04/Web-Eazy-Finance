@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { LoginPage } from './components/auth/LoginPage.tsx';
 import { AdminPasswordReset } from './components/auth/AdminPasswordReset.tsx';
+import { AdminProfileSetup } from './components/auth/AdminProfileSetup.tsx';
 import AdminWebApp from './AdminWebApp.tsx';
 import { AppProvider } from './utils/AppContext.tsx';
 import { motion, AnimatePresence } from 'motion/react';
@@ -25,7 +26,7 @@ function AppContent() {
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [session, setSession] = useState<Session | null>(null);
-  const [currentPage, setCurrentPage] = useState<'login' | 'admin-reset-password'>('login');
+  const [currentPage, setCurrentPage] = useState<'login' | 'admin-reset-password' | 'admin-profile-setup'>('login');
 
   // --- ENGLISH COMMENT ---
   // THIS IS THE NEW STATE THAT WAS MISSING.
@@ -173,14 +174,21 @@ useEffect(() => {
               <AdminPasswordReset
                 onNavigate={(dest) => {
                   console.log('Navigate to:', dest);
-                  setCurrentPage(dest as 'login' | 'admin-reset-password');
+                  setCurrentPage(dest as any);
+                }}
+              />
+            ) : currentPage === 'admin-profile-setup' ? (
+              <AdminProfileSetup
+                onNavigate={(dest) => {
+                  console.log('Navigate to:', dest);
+                  setCurrentPage(dest as any);
                 }}
               />
             ) : (
               <LoginPage
                 onNavigate={(dest) => {
                   console.log('Navigate to:', dest);
-                  setCurrentPage(dest as 'login' | 'admin-reset-password');
+                  setCurrentPage(dest as any);
                 }}
               />
             )}

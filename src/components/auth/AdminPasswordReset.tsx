@@ -114,7 +114,7 @@ export function AdminPasswordReset({ onNavigate }: AdminPasswordResetProps) {
         console.error('Reset error:', error);
       } else {
         setSuccess(true);
-        toast.success('密码重置成功！您现在可以使用新密码登录了。', {
+        toast.success('密码重置成功！', {
           duration: 5000,
         });
 
@@ -123,11 +123,6 @@ export function AdminPasswordReset({ onNavigate }: AdminPasswordResetProps) {
         setUserEmail('');
         setNewPassword('');
         setConfirmPassword('');
-
-        // 3秒后跳转到登录页
-        setTimeout(() => {
-          onNavigate('login');
-        }, 3000);
       }
 
     } catch (err) {
@@ -169,11 +164,40 @@ export function AdminPasswordReset({ onNavigate }: AdminPasswordResetProps) {
             <motion.div
               initial={{ scale: 0.8, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
-              className="text-center py-8"
+              className="space-y-6 py-4"
             >
-              <CheckCircle2 className="w-20 h-20 text-green-500 mx-auto mb-4" />
-              <h3 className="text-2xl font-bold text-gray-900 mb-2">重置成功！</h3>
-              <p className="text-gray-600">即将跳转到登录页面...</p>
+              <div className="text-center">
+                <CheckCircle2 className="w-20 h-20 text-green-500 mx-auto mb-4" />
+                <h3 className="text-2xl font-bold text-gray-900 mb-2">密码重置成功！</h3>
+              </div>
+
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-3">
+                <div className="flex gap-3">
+                  <AlertCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                  <div className="text-sm text-blue-800">
+                    <p className="font-semibold mb-2">下一步：设置管理员资料</p>
+                    <p className="mb-3">如果这是您第一次登录，或者登录时遇到 "Failed to fetch admin profile" 错误，您需要先设置管理员资料。</p>
+                  </div>
+                </div>
+                <Button
+                  onClick={() => onNavigate('admin-profile-setup')}
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                  前往设置管理员资料
+                </Button>
+              </div>
+
+              <div className="text-center pt-4">
+                <p className="text-sm text-gray-600 mb-3">或者直接尝试登录</p>
+                <Button
+                  onClick={() => onNavigate('login')}
+                  variant="outline"
+                  className="w-full"
+                >
+                  <ArrowLeft className="mr-2 w-4 h-4" />
+                  返回登录页面
+                </Button>
+              </div>
             </motion.div>
           ) : (
             <form onSubmit={handleResetPassword} className="space-y-4">
