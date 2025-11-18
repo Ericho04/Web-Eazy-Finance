@@ -116,7 +116,17 @@ export function LoginPage({ onNavigate }: LoginPageProps) {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="password-admin" className="text-sm font-medium text-gray-700">Password</Label>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="password-admin" className="text-sm font-medium text-gray-700">Password</Label>
+                  <button
+                    type="button"
+                    onClick={() => onNavigate('admin-reset-password')}
+                    className="text-xs text-amber-600 hover:text-amber-700 hover:underline"
+                    disabled={loading}
+                  >
+                    忘记密码？
+                  </button>
+                </div>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                   <Input
