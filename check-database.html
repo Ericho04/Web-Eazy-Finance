@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Supabase 数据库检查工具</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        .input-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #555;
+        }
+        input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        button {
+            background: #3b82f6;
+            color: white;
+            padding: 12px 30px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: 600;
+            width: 100%;
+            margin-top: 10px;
+        }
+        button:hover {
+            background: #2563eb;
+        }
+        button:disabled {
+            background: #94a3b8;
+            cursor: not-allowed;
+        }
+        .result {
+            margin-top: 30px;
+            padding: 20px;
+            background: #f8fafc;
+            border-radius: 5px;
+            border: 1px solid #e2e8f0;
+        }
+        .result h3 {
+            margin-top: 0;
+            color: #1e293b;
+        }
+        pre {
+            background: #1e293b;
+            color: #e2e8f0;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+            font-size: 12px;
+        }
+        .success {
+            background: #dcfce7;
+            border-color: #86efac;
+            color: #166534;
+        }
+        .error {
+            background: #fee2e2;
+            border-color: #fca5a5;
+            color: #991b1b;
+        }
+        .warning {
+            background: #fef3c7;
+            border-color: #fcd34d;
+            color: #92400e;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Supabase 数据库检查工具</h1>
+        <p>这个工具可以帮您检查数据库中的表和用户数据</p>
+
+        <div class="input-group">
+            <label for="serviceKey">Service Role Key:</label>
+            <input
+                type="password"
+                id="serviceKey"
+                placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+            />
+        </div>
+
+        <button onclick="checkDatabase()">检查数据库</button>
+        <button onclick="checkUsers()">检查认证用户</button>
+        <button onclick="checkAdminUsers()">检查 admin_users 表</button>
+        <button onclick="checkAdminUser()">检查 admin_user 表（单数）</button>
+        <button onclick="fixTableName()">尝试自动修复表名问题</button>
+
+        <div id="result"></div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://ugrcqjjovugagaknjwoa.supabase.co';
+
+        function getAdminClient() {
+            const serviceKey = document.getElementById('serviceKey').value.trim();
+            if (!serviceKey) {
+                showResult('error', '请输入 Service Role Key');
+                return null;
+            }
+            return supabase.createClient(SUPABASE_URL, serviceKey, {
+                auth: {
+                    autoRefreshToken: false,
+                    persistSession: false
+                }
+            });
+        }
+
+        function showResult(type, title, content) {
+            const resultDiv = document.getElementById('result');
+            resultDiv.className = `result ${type}`;
+            resultDiv.innerHTML = `
+                <h3>${title}</h3>
+                ${content}
+            `;
+        }
+
+        async function checkDatabase() {
+            const client = getAdminClient();
+            if (!client) return;
+
+            try {
+                showResult('', '检查中...', '正在查询数据库...');
+
+                // 尝试查询 information_schema 来列出所有表
+                const { data, error } = await client
+                    .from('information_schema.tables')
+                    .select('table_name')
+                    .eq('table_schema', 'public');
+
+                if (error) {
+                    console.error('查询错误:', error);
+                    showResult('warning', '无法查询表列表', `
+                        <p>错误: ${error.message}</p>
+                        <p>尝试其他检查方式...</p>
+                    `);
+                    return;
+                }
+
+                const tables = data.map(row => row.table_name);
+                showResult('success', '找到以下表：', `
+                    <pre>${JSON.stringify(tables, null, 2)}</pre>
+                `);
+
+            } catch (err) {
+                showResult('error', '检查失败', `<pre>${err.message}</pre>`);
+            }
+        }
+
+        async function checkUsers() {
+            const client = getAdminClient();
+            if (!client) return;
+
+            try {
+                showResult('', '检查中...', '正在查询认证用户...');
+
+                const { data, error } = await client.auth.admin.listUsers();
+
+                if (error) {
+                    showResult('error', '查询失败', `<pre>${error.message}</pre>`);
+                    return;
+                }
+
+                showResult('success', `找到 ${data.users.length} 个用户`, `
+                    <pre>${JSON.stringify(data.users.map(u => ({
+                        id: u.id,
+                        email: u.email,
+                        created_at: u.created_at,
+                        last_sign_in_at: u.last_sign_in_at
+                    })), null, 2)}</pre>
+                `);
+
+            } catch (err) {
+                showResult('error', '检查失败', `<pre>${err.message}</pre>`);
+            }
+        }
+
+        async function checkAdminUsers() {
+            const client = getAdminClient();
+            if (!client) return;
+
+            try {
+                showResult('', '检查中...', '正在查询 admin_users 表（复数）...');
+
+                const { data, error } = await client
+                    .from('admin_users')
+                    .select('*');
+
+                if (error) {
+                    showResult('error', 'admin_users 表查询失败', `
+                        <p><strong>错误信息:</strong> ${error.message}</p>
+                        <p>这个表可能不存在，或者表名是单数形式 admin_user</p>
+                        <pre>${JSON.stringify(error, null, 2)}</pre>
+                    `);
+                    return;
+                }
+
+                if (data.length === 0) {
+                    showResult('warning', 'admin_users 表存在但为空', `
+                        <p>表存在，但没有任何记录</p>
+                        <p>您需要为您的用户创建记录</p>
+                    `);
+                } else {
+                    showResult('success', `admin_users 表有 ${data.length} 条记录`, `
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `);
+                }
+
+            } catch (err) {
+                showResult('error', '检查失败', `<pre>${err.message}</pre>`);
+            }
+        }
+
+        async function checkAdminUser() {
+            const client = getAdminClient();
+            if (!client) return;
+
+            try {
+                showResult('', '检查中...', '正在查询 admin_user 表（单数）...');
+
+                const { data, error } = await client
+                    .from('admin_user')
+                    .select('*');
+
+                if (error) {
+                    showResult('error', 'admin_user 表查询失败', `
+                        <p><strong>错误信息:</strong> ${error.message}</p>
+                        <p>这个表可能不存在</p>
+                        <pre>${JSON.stringify(error, null, 2)}</pre>
+                    `);
+                    return;
+                }
+
+                if (data.length === 0) {
+                    showResult('warning', 'admin_user 表存在但为空', `
+                        <p>表存在，但没有任何记录</p>
+                        <p><strong>⚠️ 发现问题：代码中使用的是 admin_users（复数），但表名是 admin_user（单数）</strong></p>
+                    `);
+                } else {
+                    showResult('success', `admin_user 表有 ${data.length} 条记录`, `
+                        <p><strong>⚠️ 发现问题：代码中使用的是 admin_users（复数），但表名是 admin_user（单数）</strong></p>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `);
+                }
+
+            } catch (err) {
+                showResult('error', '检查失败', `<pre>${err.message}</pre>`);
+            }
+        }
+
+        async function fixTableName() {
+            showResult('warning', '修复建议', `
+                <h4>如果发现表名不匹配的问题，有两种解决方案：</h4>
+
+                <h5>方案 1：重命名数据库表（推荐）</h5>
+                <p>在 Supabase SQL Editor 中运行：</p>
+                <pre>ALTER TABLE admin_user RENAME TO admin_users;</pre>
+
+                <h5>方案 2：修改代码中的表名</h5>
+                <p>将所有代码中的 'admin_users' 改为 'admin_user'</p>
+
+                <p><strong>请先运行其他检查按钮来确认实际的表名</strong></p>
+            `);
+        }
+    </script>
+</body>
+</html>
