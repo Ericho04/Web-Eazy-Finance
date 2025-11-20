@@ -533,9 +533,29 @@ export function AdminPanel({ onBack, user, defaultTab = 'overview' }: AdminPanel
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge className="bg-blue-100 text-blue-800">{prize.type}</Badge>
+                        <Badge className={
+                          prize.type === 'points' ? 'bg-yellow-100 text-yellow-800' :
+                          prize.type === 'voucher' ? 'bg-purple-100 text-purple-800' :
+                          prize.type === 'cashback' ? 'bg-green-100 text-green-800' :
+                          'bg-pink-100 text-pink-800'
+                        }>
+                          {prize.type === 'points' && '⭐ Points'}
+                          {prize.type === 'voucher' && '🎫 Voucher'}
+                          {prize.type === 'cashback' && '💰 Cashback'}
+                          {prize.type === 'gift' && '🎁 Gift'}
+                        </Badge>
                       </TableCell>
-                      <TableCell className="font-medium">{prize.value}</TableCell>
+                      <TableCell className="font-medium">
+                        {prize.type === 'points' && (
+                          <span className="text-yellow-600">{prize.value}</span>
+                        )}
+                        {(prize.type === 'voucher' || prize.type === 'cashback') && (
+                          <span className="text-green-600">{prize.value}</span>
+                        )}
+                        {prize.type === 'gift' && (
+                          <span className="text-purple-600">{prize.value}</span>
+                        )}
+                      </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
                           <span className="font-medium">{prize.probability}%</span>
@@ -906,30 +926,96 @@ export function AdminPanel({ onBack, user, defaultTab = 'overview' }: AdminPanel
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="prize-type">Type</Label>
-                <Select value={prizeForm.type} onValueChange={(value) => setPrizeForm(prev => ({ ...prev, type: value as any }))}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="voucher">Voucher</SelectItem>
-                    <SelectItem value="points">Points</SelectItem>
-                    <SelectItem value="cashback">Cashback</SelectItem>
-                    <SelectItem value="gift">Gift</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label htmlFor="prize-value">Value *</Label>
-                <Input
-                  id="prize-value"
-                  value={prizeForm.value || ''}
-                  onChange={(e) => setPrizeForm(prev => ({ ...prev, value: e.target.value }))}
-                  placeholder="RM 10 or 100 pts"
-                />
-              </div>
+            <div>
+              <Label htmlFor="prize-type">Type *</Label>
+              <Select
+                value={prizeForm.type}
+                onValueChange={(value) => {
+                  setPrizeForm(prev => ({ ...prev, type: value as any }));
+                  // Auto-format value based on type
+                  if (value === 'points' && prev.value && !prev.value.includes('pts')) {
+                    const numericValue = prev.value.replace(/[^0-9]/g, '');
+                    setPrizeForm(prev => ({ ...prev, value: numericValue ? `${numericValue} pts` : '' }));
+                  } else if ((value === 'voucher' || value === 'cashback') && prev.value && !prev.value.includes('RM')) {
+                    const numericValue = prev.value.replace(/[^0-9]/g, '');
+                    setPrizeForm(prev => ({ ...prev, value: numericValue ? `RM ${numericValue}` : '' }));
+                  }
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="points">
+                    <div className="flex items-center gap-2">
+                      <span>⭐</span>
+                      <span>Points</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="voucher">
+                    <div className="flex items-center gap-2">
+                      <span>🎫</span>
+                      <span>Voucher</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="cashback">
+                    <div className="flex items-center gap-2">
+                      <span>💰</span>
+                      <span>Cashback</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="gift">
+                    <div className="flex items-center gap-2">
+                      <span>🎁</span>
+                      <span>Gift</span>
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label htmlFor="prize-value">
+                Value *
+                {prizeForm.type && (
+                  <span className="ml-2 text-xs text-gray-500">
+                    {prizeForm.type === 'points' && '(e.g., 100 pts)'}
+                    {(prizeForm.type === 'voucher' || prizeForm.type === 'cashback') && '(e.g., RM 10)'}
+                    {prizeForm.type === 'gift' && '(e.g., Free Coffee)'}
+                  </span>
+                )}
+              </Label>
+              <Input
+                id="prize-value"
+                value={prizeForm.value || ''}
+                onChange={(e) => {
+                  let value = e.target.value;
+
+                  // Auto-format based on type
+                  if (prizeForm.type === 'points') {
+                    // Extract numbers only and add " pts"
+                    const num = value.replace(/[^0-9]/g, '');
+                    value = num ? `${num} pts` : '';
+                  } else if (prizeForm.type === 'voucher' || prizeForm.type === 'cashback') {
+                    // Extract numbers only and add "RM "
+                    const num = value.replace(/[^0-9]/g, '');
+                    value = num ? `RM ${num}` : '';
+                  }
+
+                  setPrizeForm(prev => ({ ...prev, value }));
+                }}
+                placeholder={
+                  prizeForm.type === 'points' ? '100' :
+                  (prizeForm.type === 'voucher' || prizeForm.type === 'cashback') ? '10' :
+                  'Enter description'
+                }
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                {prizeForm.type === 'points' && '🔢 Enter number only, format auto-applied (e.g., type "100" → "100 pts")'}
+                {(prizeForm.type === 'voucher' || prizeForm.type === 'cashback') && '💵 Enter number only, format auto-applied (e.g., type "10" → "RM 10")'}
+                {prizeForm.type === 'gift' && '📝 Enter text description (e.g., "Free Coffee", "T-Shirt")'}
+                {!prizeForm.type && '⚠️ Select a type first'}
+              </p>
             </div>
 
             <div>
