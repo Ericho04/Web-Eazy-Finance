@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🧹 Prize Database Cleanup Tool</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+
+        h1 {
+            color: #667eea;
+            text-align: center;
+            margin-bottom: 10px;
+            font-size: 32px;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+        }
+
+        .warning-box {
+            background: #fff3cd;
+            border: 2px solid #ffc107;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 30px;
+        }
+
+        .warning-box strong {
+            color: #f57c00;
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        input, select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: monospace;
+        }
+
+        input:focus, select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .button-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-top: 30px;
+        }
+
+        button {
+            padding: 15px 30px;
+            border: none;
+            border-radius: 10px;
+            font-weight: 600;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+        }
+
+        .btn-danger:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(245, 87, 108, 0.4);
+        }
+
+        .result {
+            margin-top: 30px;
+            padding: 20px;
+            border-radius: 10px;
+            display: none;
+        }
+
+        .result.show {
+            display: block;
+        }
+
+        .result.success {
+            background: #d4edda;
+            border: 2px solid #28a745;
+            color: #155724;
+        }
+
+        .result.error {
+            background: #f8d7da;
+            border: 2px solid #dc3545;
+            color: #721c24;
+        }
+
+        .result.info {
+            background: #d1ecf1;
+            border: 2px solid #17a2b8;
+            color: #0c5460;
+        }
+
+        .prize-list {
+            margin-top: 20px;
+        }
+
+        .prize-item {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 10px;
+        }
+
+        .prize-item.invalid {
+            background: #fff3cd;
+            border-color: #ffc107;
+        }
+
+        .prize-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .prize-emoji {
+            font-size: 24px;
+            margin-right: 10px;
+        }
+
+        .prize-info {
+            flex: 1;
+        }
+
+        .prize-name {
+            font-weight: 600;
+            font-size: 16px;
+            color: #333;
+        }
+
+        .prize-details {
+            font-size: 14px;
+            color: #666;
+            margin-top: 5px;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-right: 5px;
+        }
+
+        .badge-points {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .badge-voucher {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+
+        .badge-cashback {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .badge-gift {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .badge-invalid {
+            background: #dc3545;
+            color: white;
+        }
+
+        pre {
+            background: #2d3748;
+            color: #e2e8f0;
+            padding: 15px;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-size: 12px;
+            margin-top: 10px;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 32px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧹 Prize Database Cleanup Tool</h1>
+        <p class="subtitle">Clean up invalid prize entries from Supabase</p>
+
+        <div class="warning-box">
+            <strong>⚠️ Important Warning</strong>
+            <p>This tool will permanently delete invalid prize entries from your Supabase database. Make sure you have a backup before proceeding!</p>
+        </div>
+
+        <div class="input-group">
+            <label for="serviceKey">🔑 Service Role Key</label>
+            <input
+                type="password"
+                id="serviceKey"
+                placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+            />
+            <small style="color: #666; margin-top: 5px; display: block;">
+                Get this from Supabase Dashboard → Settings → API → service_role key
+            </small>
+        </div>
+
+        <div class="button-group">
+            <button class="btn-primary" onclick="listPrizes()">
+                📋 List All Prizes
+            </button>
+            <button class="btn-danger" onclick="deleteInvalidPrizes()">
+                🗑️ Delete Invalid Prizes
+            </button>
+        </div>
+
+        <button class="btn-primary" onclick="createCorrectPrizes()" style="width: 100%; margin-top: 15px;">
+            ✨ Create Correct Sample Prizes
+        </button>
+
+        <div id="result" class="result"></div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://ugrcqjjovugagaknjwoa.supabase.co';
+        const PRIZE_TABLE = 'prizes'; // 修改为您实际的表名
+
+        function getAdminClient() {
+            const serviceKey = document.getElementById('serviceKey').value.trim();
+            if (!serviceKey) {
+                showResult('error', '❌ Error', '<p>Please enter Service Role Key</p>');
+                return null;
+            }
+            return supabase.createClient(SUPABASE_URL, serviceKey, {
+                auth: {
+                    autoRefreshToken: false,
+                    persistSession: false
+                }
+            });
+        }
+
+        function showResult(type, title, content) {
+            const resultDiv = document.getElementById('result');
+            resultDiv.className = `result ${type} show`;
+            resultDiv.innerHTML = `<h3>${title}</h3>${content}`;
+        }
+
+        function isInvalidPrize(prize) {
+            // 检查是否为无效奖品
+            // 1. type 是 "points" 但 value 不包含 "pts"
+            if (prize.type === 'points' && !prize.value.includes('pts')) {
+                return true;
+            }
+            // 2. type 是 "voucher" 或 "cashback" 但 value 不包含 "RM"
+            if ((prize.type === 'voucher' || prize.type === 'cashback') &&
+                prize.value && !prize.value.includes('RM')) {
+                return true;
+            }
+            // 3. value 是纯数字（没有格式化）
+            if (/^\d+$/.test(prize.value)) {
+                return true;
+            }
+            return false;
+        }
+
+        async function listPrizes() {
+            const client = getAdminClient();
+            if (!client) return;
+
+            try {
+                showResult('info', '⏳ Loading...', '<p>Fetching prizes from database...</p>');
+
+                const { data, error } = await client
+                    .from(PRIZE_TABLE)
+                    .select('*')
+                    .order('id', { ascending: true });
+
+                if (error) {
+                    showResult('error', '❌ Error', `
+                        <p>Failed to fetch prizes: ${error.message}</p>
+                        <p><strong>Possible issues:</strong></p>
+                        <ul>
+                            <li>Table name might be wrong (currently: "${PRIZE_TABLE}")</li>
+                            <li>Service Role Key is invalid</li>
+                            <li>Table doesn't exist</li>
+                        </ul>
+                        <pre>${JSON.stringify(error, null, 2)}</pre>
+                    `);
+                    return;
+                }
+
+                if (!data || data.length === 0) {
+                    showResult('info', 'ℹ️ No Prizes Found', '<p>The prizes table is empty.</p>');
+                    return;
+                }
+
+                // 统计
+                const totalPrizes = data.length;
+                const invalidPrizes = data.filter(isInvalidPrize);
+                const validPrizes = data.filter(p => !isInvalidPrize(p));
+
+                let html = `
+                    <div class="stats">
+                        <div class="stat-card">
+                            <div class="stat-value">${totalPrizes}</div>
+                            <div class="stat-label">Total Prizes</div>
+                        </div>
+                        <div class="stat-card" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+                            <div class="stat-value">${invalidPrizes.length}</div>
+                            <div class="stat-label">Invalid Prizes</div>
+                        </div>
+                        <div class="stat-card" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
+                            <div class="stat-value">${validPrizes.length}</div>
+                            <div class="stat-label">Valid Prizes</div>
+                        </div>
+                    </div>
+                    <div class="prize-list">
+                `;
+
+                data.forEach(prize => {
+                    const invalid = isInvalidPrize(prize);
+                    const typeClass = prize.type ? `badge-${prize.type}` : 'badge-invalid';
+
+                    html += `
+                        <div class="prize-item ${invalid ? 'invalid' : ''}">
+                            <div class="prize-header">
+                                <div style="display: flex; align-items: center; flex: 1;">
+                                    <span class="prize-emoji">${prize.emoji || '❓'}</span>
+                                    <div class="prize-info">
+                                        <div class="prize-name">${prize.name || 'Unknown'}</div>
+                                        <div class="prize-details">
+                                            <span class="badge ${typeClass}">${prize.type || 'unknown'}</span>
+                                            <span class="badge" style="background: #e9ecef; color: #495057;">
+                                                Value: ${prize.value || 'N/A'}
+                                            </span>
+                                            <span class="badge" style="background: #e9ecef; color: #495057;">
+                                                Probability: ${prize.probability}%
+                                            </span>
+                                            ${invalid ? '<span class="badge badge-invalid">INVALID</span>' : ''}
+                                        </div>
+                                    </div>
+                                </div>
+                                <small style="color: #999;">ID: ${prize.id}</small>
+                            </div>
+                            ${invalid ? `
+                                <div style="margin-top: 10px; padding: 10px; background: #fff; border-radius: 5px; font-size: 12px;">
+                                    <strong>❌ Issues:</strong>
+                                    ${prize.type === 'points' && !prize.value.includes('pts') ? '<br>• Points value should include "pts" suffix' : ''}
+                                    ${(prize.type === 'voucher' || prize.type === 'cashback') && !prize.value.includes('RM') ? '<br>• Voucher/Cashback should include "RM" prefix' : ''}
+                                    ${/^\d+$/.test(prize.value) ? '<br>• Value is unformatted (pure number)' : ''}
+                                </div>
+                            ` : ''}
+                        </div>
+                    `;
+                });
+
+                html += '</div>';
+
+                showResult('success', '✅ Prizes Loaded', html);
+
+            } catch (err) {
+                showResult('error', '❌ Error', `<pre>${err.message}</pre>`);
+            }
+        }
+
+        async function deleteInvalidPrizes() {
+            if (!confirm('⚠️ Are you sure you want to delete ALL invalid prizes? This cannot be undone!')) {
+                return;
+            }
+
+            const client = getAdminClient();
+            if (!client) return;
+
+            try {
+                showResult('info', '⏳ Processing...', '<p>Deleting invalid prizes...</p>');
+
+                // 获取所有奖品
+                const { data: allPrizes, error: fetchError } = await client
+                    .from(PRIZE_TABLE)
+                    .select('*');
+
+                if (fetchError) {
+                    showResult('error', '❌ Error', `<p>Failed to fetch prizes: ${fetchError.message}</p>`);
+                    return;
+                }
+
+                // 过滤出无效奖品
+                const invalidPrizes = allPrizes.filter(isInvalidPrize);
+
+                if (invalidPrizes.length === 0) {
+                    showResult('info', 'ℹ️ No Invalid Prizes', '<p>No invalid prizes found to delete.</p>');
+                    return;
+                }
+
+                // 删除无效奖品
+                const invalidIds = invalidPrizes.map(p => p.id);
+                const { error: deleteError } = await client
+                    .from(PRIZE_TABLE)
+                    .delete()
+                    .in('id', invalidIds);
+
+                if (deleteError) {
+                    showResult('error', '❌ Delete Failed', `<p>${deleteError.message}</p>`);
+                    return;
+                }
+
+                showResult('success', '✅ Cleanup Complete', `
+                    <p><strong>Deleted ${invalidPrizes.length} invalid prizes:</strong></p>
+                    <ul>
+                        ${invalidPrizes.map(p => `<li>${p.emoji} ${p.name} (${p.type} - ${p.value})</li>`).join('')}
+                    </ul>
+                    <p style="margin-top: 15px;">You can now create new, correctly formatted prizes!</p>
+                `);
+
+            } catch (err) {
+                showResult('error', '❌ Error', `<pre>${err.message}</pre>`);
+            }
+        }
+
+        async function createCorrectPrizes() {
+            if (!confirm('This will create sample prizes with correct formatting. Continue?')) {
+                return;
+            }
+
+            const client = getAdminClient();
+            if (!client) return;
+
+            const samplePrizes = [
+                {
+                    name: 'Cashback',
+                    description: 'Get money back',
+                    type: 'cashback',
+                    value: 'RM 10',
+                    probability: 25,
+                    color: 'from-green-400 to-emerald-500',
+                    emoji: '💰',
+                    is_active: true
+                },
+                {
+                    name: 'Bonus Points',
+                    description: 'Extra reward points',
+                    type: 'points',
+                    value: '100 pts',
+                    probability: 30,
+                    color: 'from-yellow-400 to-orange-500',
+                    emoji: '⭐',
+                    is_active: true
+                },
+                {
+                    name: 'Grab Voucher',
+                    description: 'Food delivery voucher',
+                    type: 'voucher',
+                    value: 'RM 20',
+                    probability: 20,
+                    color: 'from-orange-400 to-red-500',
+                    emoji: '🍔',
+                    is_active: true
+                },
+                {
+                    name: 'Free Coffee',
+                    description: 'Complimentary coffee',
+                    type: 'gift',
+                    value: 'Free Coffee',
+                    probability: 15,
+                    color: 'from-amber-400 to-yellow-500',
+                    emoji: '☕',
+                    is_active: true
+                },
+                {
+                    name: 'Mega Points',
+                    description: 'Huge point bonus',
+                    type: 'points',
+                    value: '500 pts',
+                    probability: 10,
+                    color: 'from-purple-400 to-pink-500',
+                    emoji: '💎',
+                    is_active: true
+                }
+            ];
+
+            try {
+                showResult('info', '⏳ Creating...', '<p>Creating sample prizes...</p>');
+
+                const { data, error } = await client
+                    .from(PRIZE_TABLE)
+                    .insert(samplePrizes)
+                    .select();
+
+                if (error) {
+                    showResult('error', '❌ Failed', `<p>${error.message}</p><pre>${JSON.stringify(error, null, 2)}</pre>`);
+                    return;
+                }
+
+                showResult('success', '✅ Sample Prizes Created', `
+                    <p>Created ${data.length} sample prizes with correct formatting!</p>
+                    <p>Click "List All Prizes" to see them.</p>
+                `);
+
+            } catch (err) {
+                showResult('error', '❌ Error', `<pre>${err.message}</pre>`);
+            }
+        }
+    </script>
+</body>
+</html>

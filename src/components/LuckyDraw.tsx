@@ -159,13 +159,24 @@ export function LuckyDraw({ onBack, user }: LuckyDrawProps) {
     setTimeout(() => {
       setIsSpinning(false);
       setShowResult(true);
-      
-      // Award prize
+
+      // Award prize - ONLY add points if type is 'points'
       if (prize.type === 'points') {
-        const points = parseInt(prize.value.split(' ')[0]);
-        setUserPoints(prev => prev + points);
+        // Extract numeric value from "100 pts" format
+        const numericValue = prize.value.replace(/[^0-9]/g, '');
+        const points = parseInt(numericValue);
+
+        if (!isNaN(points) && points > 0) {
+          setUserPoints(prev => prev + points);
+          console.log(`✅ Prize awarded: +${points} points`);
+        } else {
+          console.error('❌ Invalid points value:', prize.value);
+        }
+      } else {
+        // For voucher, cashback, or gift - just record in history, no points
+        console.log(`🎁 Non-points prize awarded: ${prize.type} - ${prize.value}`);
       }
-      
+
       // Add to history
       setSpinHistory(prev => [prize, ...prev.slice(0, 4)]);
     }, 3000);
