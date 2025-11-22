@@ -147,10 +147,10 @@ export function Insights({ onNavigate, user }: InsightsProps) {
         .select(`
           item_id,
           points_spent,
-          shop_items!inner (id, name, emoji, points_cost)
+          shop_items!inner (id, name, emoji, points_cost, category)
         `);
 
-      const shopMap: { [key: string]: { name: string; emoji: string; count: number; totalPoints: number } } = {};
+      const shopMap: { [key: string]: { name: string; emoji: string; category: string; count: number } } = {};
       (allRedeems || []).forEach((redeem: any) => {
         const itemId = redeem.item_id;
         const itemName = redeem.shop_items?.name || 'Unknown Item';
@@ -159,12 +159,11 @@ export function Insights({ onNavigate, user }: InsightsProps) {
           shopMap[itemId] = {
             name: itemName,
             emoji: redeem.shop_items?.emoji || '🛍️',
-            count: 0,
-            totalPoints: 0
+            category: redeem.shop_items?.category || 'Uncategorized',
+            count: 0
           };
         }
         shopMap[itemId].count += 1;
-        shopMap[itemId].totalPoints += (redeem.points_spent || 0);
       });
 
       const shopPerformance = Object.entries(shopMap)
@@ -172,11 +171,11 @@ export function Insights({ onNavigate, user }: InsightsProps) {
           id,
           name: data.name,
           emoji: data.emoji,
-          timesPurchased: data.count,
-          totalPoints: data.totalPoints
+          category: data.category,
+          redeemCount: data.count
         }))
-        .sort((a, b) => b.timesPurchased - a.timesPurchased)
-        .slice(0, 10);
+        .sort((a, b) => b.redeemCount - a.redeemCount)
+        .slice(0, 3);
 
       setAnalyticsData({
         transactionHistory,
@@ -673,13 +672,13 @@ export function Insights({ onNavigate, user }: InsightsProps) {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-3">
-                    {analyticsData.shopPerformance.slice(0, 5).map((item, index) => (
+                    {analyticsData.shopPerformance.map((item, index) => (
                       <div key={item.id} className="flex items-center justify-between p-3 rounded-xl bg-white/50">
                         <div className="flex items-center gap-3">
                           <span className="text-2xl">{item.emoji}</span>
                           <div>
                             <p className="font-bold text-gray-800">{item.name}</p>
-                            <p className="text-sm text-gray-600">{item.timesPurchased} redemptions · {item.totalPoints} pts total</p>
+                            <p className="text-sm text-gray-600">{item.category} · Redeemed {item.redeemCount} times</p>
                           </div>
                         </div>
                         <Badge className="bg-green-500 text-white">#{index + 1}</Badge>

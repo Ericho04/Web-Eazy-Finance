@@ -24,7 +24,8 @@ import {
   Coffee,
   Fuel,
   Users,
-  Loader2
+  Loader2,
+  Award
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useApp } from '../utils/AppContext';
@@ -45,7 +46,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
     totalCost: 0,
     totalPrizesAwarded: 0,
     totalShopSales: 0,
-    platformActivity: [] as any[]
+    prizeDistribution: [] as any[]
   });
 
   const activeGoals = getActiveGoals();
@@ -96,51 +97,43 @@ export function Dashboard({ onNavigate }: DashboardProps) {
         .from('redeem')
         .select('*', { count: 'exact', head: true });
 
-      // 4. Platform Activity - Last 7 days (lucky_draw + redeem combined)
-      const sevenDaysAgo = new Date();
-      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-
-      const { data: luckyDraws } = await supabase
+      // 4. Prize Distribution (group by reward_id)
+      const { data: allDraws } = await supabase
         .from('lucky_draw')
-        .select('created_at')
-        .gte('created_at', sevenDaysAgo.toISOString());
+        .select(`
+          reward_id,
+          prizes (id, name, emoji)
+        `);
 
-      const { data: redeems } = await supabase
-        .from('redeem')
-        .select('created_at')
-        .gte('created_at', sevenDaysAgo.toISOString());
-
-      // Generate last 7 days array
-      const last7Days = Array.from({ length: 7 }, (_, i) => {
-        const date = new Date();
-        date.setDate(date.getDate() - (6 - i));
-        return date.toISOString().split('T')[0];
+      const prizeMap: { [key: number]: { name: string; emoji: string; count: number } } = {};
+      (allDraws || []).forEach((draw: any) => {
+        const rewardId = draw.reward_id;
+        if (!prizeMap[rewardId]) {
+          prizeMap[rewardId] = {
+            name: draw.prizes?.name || 'Unknown Prize',
+            emoji: draw.prizes?.emoji || '🎁',
+            count: 0
+          };
+        }
+        prizeMap[rewardId].count += 1;
       });
 
-      // Calculate activity for each day
-      const platformActivity = last7Days.map(day => {
-        const luckyDrawCount = (luckyDraws || []).filter((d: any) => {
-          return new Date(d.created_at).toISOString().split('T')[0] === day;
-        }).length;
-
-        const redeemCount = (redeems || []).filter((r: any) => {
-          return new Date(r.created_at).toISOString().split('T')[0] === day;
-        }).length;
-
-        return {
-          date: day,
-          activity: luckyDrawCount + redeemCount,
-          luckyDrawCount,
-          redeemCount
-        };
-      });
+      const prizeDistribution = Object.entries(prizeMap)
+        .map(([id, data]) => ({
+          id: parseInt(id),
+          name: data.name,
+          emoji: data.emoji,
+          count: data.count
+        }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 5);
 
       setDashboardStats({
         totalUsers: userCount || 0,
         totalCost: 0, // Placeholder
         totalPrizesAwarded: prizesCount || 0,
         totalShopSales: redeemCount || 0,
-        platformActivity
+        prizeDistribution
       });
 
     } catch (error) {
@@ -353,20 +346,78 @@ export function Dashboard({ onNavigate }: DashboardProps) {
               <motion.div
                 whileHover={{ scale: 1.02 }}
                 transition={{ duration: 0.2 }}
+                className="col-span-2"
               >
-                <Card className="cartoon-card bg-gradient-to-br from-orange-50 to-yellow-50 border-orange-200/30">
+                <Card className="cartoon-card bg-gradient-to-br from-purple-50 to-pink-50 border-purple-200/30">
                   <CardContent className="p-5">
-                    <div className="flex items-center gap-3 mb-2">
-                      <div className="w-10 h-10 rounded-full bg-gradient-to-r from-orange-400 to-yellow-400 flex items-center justify-center">
-                        <TrendingUp className="w-5 h-5 text-white" />
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-r from-purple-400 to-pink-400 flex items-center justify-center">
+                        <Award className="w-5 h-5 text-white" />
                       </div>
                       <div>
-                        <p className="text-2xl font-bold text-gray-800">
-                          {dashboardStats.platformActivity.reduce((sum, day) => sum + day.activity, 0)}
-                        </p>
-                        <p className="text-sm text-gray-600">7-Day Activity</p>
+                        <p className="text-lg font-bold text-gray-800">Prize Distribution</p>
+                        <p className="text-xs text-gray-600">Most popular prizes</p>
                       </div>
                     </div>
+
+                    {dashboardStats.prizeDistribution.length > 0 ? (
+                      <div className="flex items-center gap-4">
+                        {/* Pie Chart */}
+                        <div className="relative w-32 h-32 flex-shrink-0">
+                          <svg viewBox="0 0 100 100" className="transform -rotate-90">
+                            {(() => {
+                              const total = dashboardStats.prizeDistribution.reduce((sum, p) => sum + p.count, 0);
+                              let currentAngle = 0;
+                              const colors = ['#a855f7', '#ec4899', '#f59e0b', '#10b981', '#3b82f6'];
+
+                              return dashboardStats.prizeDistribution.map((prize, index) => {
+                                const percentage = (prize.count / total) * 100;
+                                const angle = (percentage / 100) * 360;
+                                const startAngle = currentAngle;
+                                currentAngle += angle;
+
+                                const x1 = 50 + 40 * Math.cos((startAngle * Math.PI) / 180);
+                                const y1 = 50 + 40 * Math.sin((startAngle * Math.PI) / 180);
+                                const x2 = 50 + 40 * Math.cos((currentAngle * Math.PI) / 180);
+                                const y2 = 50 + 40 * Math.sin((currentAngle * Math.PI) / 180);
+                                const largeArc = angle > 180 ? 1 : 0;
+
+                                return (
+                                  <path
+                                    key={prize.id}
+                                    d={`M 50 50 L ${x1} ${y1} A 40 40 0 ${largeArc} 1 ${x2} ${y2} Z`}
+                                    fill={colors[index % colors.length]}
+                                    className="transition-all hover:opacity-80"
+                                  />
+                                );
+                              });
+                            })()}
+                          </svg>
+                        </div>
+
+                        {/* Legend */}
+                        <div className="flex-1 space-y-2 max-h-32 overflow-y-auto">
+                          {dashboardStats.prizeDistribution.map((prize, index) => {
+                            const total = dashboardStats.prizeDistribution.reduce((sum, p) => sum + p.count, 0);
+                            const percentage = ((prize.count / total) * 100).toFixed(1);
+                            const colors = ['bg-purple-500', 'bg-pink-500', 'bg-amber-500', 'bg-emerald-500', 'bg-blue-500'];
+
+                            return (
+                              <div key={prize.id} className="flex items-center gap-2">
+                                <div className={`w-3 h-3 rounded-full ${colors[index % colors.length]}`}></div>
+                                <span className="text-xs">{prize.emoji}</span>
+                                <span className="text-xs text-gray-700 flex-1 truncate">{prize.name}</span>
+                                <span className="text-xs font-bold text-gray-800">{percentage}%</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-center text-gray-500 text-sm py-4">
+                        No prize data available
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               </motion.div>
