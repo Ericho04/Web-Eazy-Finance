@@ -203,7 +203,7 @@ export function Insights({ onNavigate, user }: InsightsProps) {
     const tips = [];
     const totalSpending = monthlySpending.reduce((sum, item) => sum + item.amount, 0);
     const totalBudget = monthlySpending.reduce((sum, item) => sum + item.budget, 0);
-    
+
     // Overspending analysis
     monthlySpending.forEach(category => {
       if (category.amount > category.budget) {
@@ -227,7 +227,7 @@ export function Insights({ onNavigate, user }: InsightsProps) {
     if (topCategory.percentage > 30) {
       let tipMessage = '';
       let savingsAmount = 0;
-      
+
       if (topCategory.category === 'Food & Dining') {
         savingsAmount = topCategory.amount * 0.3;
         tipMessage = `${topCategory.percentage}% of your spending goes to dining. Try meal prepping 3 days a week to save approximately RM${savingsAmount.toFixed(0)}/month!`;
@@ -238,7 +238,7 @@ export function Insights({ onNavigate, user }: InsightsProps) {
         savingsAmount = topCategory.amount * 0.15;
         tipMessage = `Transportation costs are high at ${topCategory.percentage}%. Consider carpooling or public transport to save RM${savingsAmount.toFixed(0)}/month.`;
       }
-      
+
       tips.push({
         type: 'improvement',
         category: 'Spending Optimization',
@@ -344,24 +344,24 @@ export function Insights({ onNavigate, user }: InsightsProps) {
   const calculateWellnessScore = () => {
     let score = 0;
     const maxScore = 100;
-    
+
     // Budget adherence (40 points)
     const budgetAdherence = monthlySpending.reduce((acc, cat) => {
       return acc + (cat.amount <= cat.budget ? 1 : 0);
     }, 0);
     score += (budgetAdherence / monthlySpending.length) * 40;
-    
+
     // Spending diversity (20 points) - no single category > 50%
     const maxCategoryPercentage = Math.max(...monthlySpending.map(cat => cat.percentage));
     score += maxCategoryPercentage < 50 ? 20 : (50 - maxCategoryPercentage) * 0.4;
-    
+
     // Trend improvement (20 points)
     const improvingTrends = monthlySpending.filter(cat => cat.trend.startsWith('-')).length;
     score += (improvingTrends / monthlySpending.length) * 20;
-    
+
     // Base financial activity (20 points)
     score += 20; // For having tracked expenses
-    
+
     return Math.round(Math.min(score, maxScore));
   };
 
@@ -416,7 +416,7 @@ export function Insights({ onNavigate, user }: InsightsProps) {
   const getSpendingInsight = () => {
     const topCategory = monthlySpending[0];
     const budgetVariance = totalSpending - totalBudget;
-    
+
     if (budgetVariance > 0) {
       return {
         type: 'warning',
@@ -511,8 +511,8 @@ export function Insights({ onNavigate, user }: InsightsProps) {
                   onClick={() => setTimeRange(range)}
                   variant={timeRange === range ? "default" : "outline"}
                   className={`cartoon-button ${
-                    timeRange === range 
-                      ? 'bg-gradient-to-r from-blue-500 to-purple-500 text-white' 
+                    timeRange === range
+                      ? 'bg-gradient-to-r from-blue-500 to-purple-500 text-white'
                       : 'bg-white text-gray-700'
                   }`}
                 >
@@ -561,8 +561,8 @@ export function Insights({ onNavigate, user }: InsightsProps) {
                       </div>
                     </div>
                   </div>
-                  <Progress 
-                    value={wellnessScore} 
+                  <Progress
+                    value={wellnessScore}
                     className="h-3 rounded-full [&>div]:bg-gradient-to-r [&>div]:from-green-400 [&>div]:to-emerald-400"
                   />
                 </CardContent>
@@ -755,12 +755,12 @@ export function Insights({ onNavigate, user }: InsightsProps) {
                 <PieChart className="w-5 h-5 text-purple-500" />
                 <h2 className="text-lg font-bold text-gray-800">Spending by Category</h2>
               </div>
-              
+
               <div className="space-y-3">
                 {monthlySpending.map((category, index) => {
                   const isOverBudget = category.amount > category.budget;
                   const budgetUsage = (category.amount / category.budget) * 100;
-                  
+
                   return (
                     <motion.div
                       key={category.category}
@@ -783,10 +783,10 @@ export function Insights({ onNavigate, user }: InsightsProps) {
                             <div className="text-right">
                               <p className="font-bold text-gray-800">{category.percentage}%</p>
                               <div className="flex items-center gap-1">
-                                <Badge 
+                                <Badge
                                   className={`text-xs ${
-                                    category.trend.startsWith('+') 
-                                      ? 'bg-red-100 text-red-800' 
+                                    category.trend.startsWith('+')
+                                      ? 'bg-red-100 text-red-800'
                                       : 'bg-green-100 text-green-800'
                                   }`}
                                 >
@@ -798,17 +798,17 @@ export function Insights({ onNavigate, user }: InsightsProps) {
                               </div>
                             </div>
                           </div>
-                          
+
                           <div className="space-y-2">
-                            <Progress 
-                              value={category.percentage} 
+                            <Progress
+                              value={category.percentage}
                               className="h-2 rounded-full [&>div]:bg-gradient-to-r [&>div]:from-purple-400 [&>div]:to-pink-400"
                             />
-                            <Progress 
-                              value={budgetUsage} 
+                            <Progress
+                              value={budgetUsage}
                               className={`h-1 rounded-full [&>div]:bg-gradient-to-r ${
-                                isOverBudget 
-                                  ? '[&>div]:from-red-400 [&>div]:to-red-600' 
+                                isOverBudget
+                                  ? '[&>div]:from-red-400 [&>div]:to-red-600'
                                   : '[&>div]:from-green-400 [&>div]:to-green-600'
                               }`}
                             />
@@ -843,7 +843,7 @@ export function Insights({ onNavigate, user }: InsightsProps) {
                   </div>
                 </Button>
               </motion.div>
-              
+
               <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
                 <Button
                   onClick={() => onNavigate('expense-history')}
@@ -867,7 +867,7 @@ export function Insights({ onNavigate, user }: InsightsProps) {
               className="text-center"
             >
               <motion.div
-                animate={{ 
+                animate={{
                   scale: [1, 1.1, 1],
                   rotate: [0, 5, -5, 0]
                 }}
@@ -922,7 +922,7 @@ export function Insights({ onNavigate, user }: InsightsProps) {
                             </div>
                             <h3 className="font-bold text-gray-800 mb-2">{tip.title}</h3>
                             <p className="text-sm text-gray-700 mb-3">{tip.message}</p>
-                            
+
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-2">
                                 {tip.savings > 0 && (
@@ -983,7 +983,7 @@ export function Insights({ onNavigate, user }: InsightsProps) {
                   </motion.div>
                   <h3 className="text-lg font-bold mb-2">Want More Personalized Tips?</h3>
                   <p className="text-sm opacity-90 mb-4">Connect your bank accounts for deeper insights and AI-powered recommendations</p>
-                  <Button 
+                  <Button
                     className="cartoon-button bg-white text-purple-600 hover:bg-gray-50"
                     onClick={() => onNavigate('financial-accounts')}
                   >
@@ -1024,7 +1024,7 @@ export function Insights({ onNavigate, user }: InsightsProps) {
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                 >
-                  <Card 
+                  <Card
                     className="cartoon-card cursor-pointer border-0 overflow-hidden relative"
                     onClick={() => window.open(resource.link, '_blank')}
                   >
@@ -1064,7 +1064,7 @@ export function Insights({ onNavigate, user }: InsightsProps) {
                 <Sparkles className="w-5 h-5 text-blue-500" />
                 <h3 className="text-lg font-bold text-gray-800">Built-in Financial Tools</h3>
               </div>
-              
+
               <div className="grid grid-cols-2 gap-3">
                 {financialTools.map((tool, index) => {
                   const IconComponent = tool.icon;
@@ -1073,16 +1073,16 @@ export function Insights({ onNavigate, user }: InsightsProps) {
                       key={tool.id}
                       initial={{ opacity: 0, scale: 0.8 }}
                       animate={{ opacity: 1, scale: 1 }}
-                      transition={{ 
-                        duration: 0.4, 
+                      transition={{
+                        duration: 0.4,
                         delay: 0.6 + index * 0.1,
                         type: "spring",
-                        stiffness: 200 
+                        stiffness: 200
                       }}
                       whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.95 }}
                     >
-                      <Card 
+                      <Card
                         className="cartoon-card cursor-pointer overflow-hidden relative"
                         onClick={() => onNavigate(tool.route)}
                       >
@@ -1090,18 +1090,18 @@ export function Insights({ onNavigate, user }: InsightsProps) {
                         <div className="absolute top-0 right-0 text-4xl opacity-10">
                           {tool.emoji}
                         </div>
-                        
+
                         <CardContent className="p-4">
                           <div className="flex flex-col items-center text-center space-y-3">
                             <div className={`w-12 h-12 rounded-full bg-gradient-to-r ${tool.color} flex items-center justify-center`}>
                               <IconComponent className="w-6 h-6 text-white" />
                             </div>
-                            
+
                             <div>
                               <h4 className="font-bold text-gray-800 text-sm">{tool.title}</h4>
                               <p className="text-xs text-gray-600 mt-1">{tool.description}</p>
                             </div>
-                            
+
                             <div className="flex items-center text-xs text-purple-600">
                               <span>Explore</span>
                               <ChevronRight className="w-3 h-3 ml-1" />
@@ -1133,14 +1133,14 @@ export function Insights({ onNavigate, user }: InsightsProps) {
                   <h3 className="text-lg font-bold mb-2">Join Our Community</h3>
                   <p className="text-sm opacity-90 mb-4">Connect with like-minded individuals on their financial journey</p>
                   <div className="flex gap-2 justify-center">
-                    <Button 
+                    <Button
                       className="cartoon-button bg-white text-indigo-600 hover:bg-gray-50 text-xs"
                       onClick={() => window.open('https://reddit.com/r/personalfinance', '_blank')}
                     >
                       <Users className="w-3 h-3 mr-1" />
                       Reddit
                     </Button>
-                    <Button 
+                    <Button
                       className="cartoon-button bg-white text-indigo-600 hover:bg-gray-50 text-xs"
                       onClick={() => window.open('https://www.bogleheads.org/', '_blank')}
                     >
