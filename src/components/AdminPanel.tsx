@@ -178,11 +178,10 @@ export function AdminPanel({ onBack, user, defaultTab = 'overview' }: AdminPanel
   const fetchAllData = async () => {
     setIsLoading(true);
     try {
-      // Fetch prizes from Supabase
+      // Fetch prizes from Supabase (id, name, type, value, probability)
       const { data: prizesData, error: prizesError } = await supabase
         .from('prizes')
-        .select('*')
-        .order('created_at', { ascending: false });
+        .select('*');
 
       if (prizesError) throw prizesError;
       if (prizesData) {
@@ -200,11 +199,10 @@ export function AdminPanel({ onBack, user, defaultTab = 'overview' }: AdminPanel
         setPrizes(formattedPrizes);
       }
 
-      // Fetch shop items from Supabase
+      // Fetch shop items from Supabase (id, name, points_cost)
       const { data: shopItemsData, error: shopItemsError } = await supabase
         .from('shop_items')
-        .select('*')
-        .order('created_at', { ascending: false });
+        .select('*');
 
       if (shopItemsError) throw shopItemsError;
       if (shopItemsData) {
@@ -212,7 +210,7 @@ export function AdminPanel({ onBack, user, defaultTab = 'overview' }: AdminPanel
           id: item.id,
           name: item.name,
           description: item.description || '',
-          category: item.category,
+          category: item.category || 'vouchers',
           pointsCost: item.points_cost,
           originalValue: item.original_value || '',
           discount: item.discount || 0,
@@ -225,20 +223,20 @@ export function AdminPanel({ onBack, user, defaultTab = 'overview' }: AdminPanel
         setShopItems(formattedShopItems);
       }
 
-      // Fetch lucky_draw records
+      // Fetch lucky_draw records (draw_id, user_id, reward_id, prize_won, point_used, date, created_at)
       const { data: luckyDrawData, error: luckyDrawError } = await supabase
         .from('lucky_draw')
-        .select('*, prizes(name, emoji, value), user_profiles(username)')
+        .select('*')
         .order('created_at', { ascending: false });
 
       if (luckyDrawError) throw luckyDrawError;
       setLuckyDrawRecords(luckyDrawData || []);
       setTotalPrizesAwarded(luckyDrawData?.length || 0);
 
-      // Fetch redeem records
+      // Fetch redeem records (redeem_id, user_id, item_id, item_name, points_spent, status, created_at)
       const { data: redeemData, error: redeemError } = await supabase
         .from('redeem')
-        .select('*, shop_items(name, emoji, points_cost), user_profiles(username)')
+        .select('*')
         .order('created_at', { ascending: false });
 
       if (redeemError) throw redeemError;
@@ -256,25 +254,33 @@ export function AdminPanel({ onBack, user, defaultTab = 'overview' }: AdminPanel
       setUserProfiles(usersData || []);
 
       // Calculate recent activity (merge lucky_draw and redeem)
-      const drawActivity = (luckyDrawData || []).slice(0, 10).map((d: any) => ({
-        id: d.id,
-        type: 'lucky_draw',
-        user: d.user_profiles?.username || 'Unknown',
-        item: d.prizes?.name || 'Prize',
-        emoji: d.prizes?.emoji || '🎁',
-        value: d.prizes?.value || '',
-        createdAt: d.created_at
-      }));
+      const drawActivity = (luckyDrawData || []).slice(0, 10).map((d: any) => {
+        // Find prize details by reward_id
+        const prize = prizesData?.find((p: any) => p.id === d.reward_id);
+        return {
+          id: d.draw_id,
+          type: 'lucky_draw',
+          user: `User ${d.user_id}`,
+          item: d.prize_won || prize?.name || 'Prize',
+          emoji: prize?.emoji || '🎁',
+          value: prize?.value || d.prize_won || '',
+          createdAt: d.created_at
+        };
+      });
 
-      const redeemActivity = (redeemData || []).slice(0, 10).map((r: any) => ({
-        id: r.id,
-        type: 'redeem',
-        user: r.user_profiles?.username || 'Unknown',
-        item: r.shop_items?.name || 'Item',
-        emoji: r.shop_items?.emoji || '🛍️',
-        value: `${r.shop_items?.points_cost || 0} pts`,
-        createdAt: r.created_at
-      }));
+      const redeemActivity = (redeemData || []).slice(0, 10).map((r: any) => {
+        // Find shop item details by item_id
+        const shopItem = shopItemsData?.find((i: any) => i.id === r.item_id);
+        return {
+          id: r.redeem_id,
+          type: 'redeem',
+          user: `User ${r.user_id}`,
+          item: r.item_name || shopItem?.name || 'Item',
+          emoji: shopItem?.emoji || '🛍️',
+          value: `${r.points_spent || shopItem?.points_cost || 0} pts`,
+          createdAt: r.created_at
+        };
+      });
 
       const combinedActivity = [...drawActivity, ...redeemActivity]
         .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
@@ -282,17 +288,19 @@ export function AdminPanel({ onBack, user, defaultTab = 'overview' }: AdminPanel
 
       setRecentActivity(combinedActivity);
 
-      // Calculate prize distribution (group by prize_id)
+      // Calculate prize distribution (group by reward_id)
       const prizeCount: { [key: string]: number } = {};
       (luckyDrawData || []).forEach((draw: any) => {
-        const prizeId = draw.prize_id;
-        prizeCount[prizeId] = (prizeCount[prizeId] || 0) + 1;
+        const rewardId = draw.reward_id;
+        if (rewardId) {
+          prizeCount[rewardId] = (prizeCount[rewardId] || 0) + 1;
+        }
       });
 
-      const prizeDistData = Object.entries(prizeCount).map(([prizeId, count]) => {
-        const prize = prizesData?.find((p: any) => p.id === prizeId);
+      const prizeDistData = Object.entries(prizeCount).map(([rewardId, count]) => {
+        const prize = prizesData?.find((p: any) => p.id === rewardId);
         return {
-          prizeId,
+          prizeId: rewardId,
           prizeName: prize?.name || 'Unknown Prize',
           emoji: prize?.emoji || '🎁',
           count,
@@ -308,7 +316,9 @@ export function AdminPanel({ onBack, user, defaultTab = 'overview' }: AdminPanel
       const shopCount: { [key: string]: number } = {};
       (redeemData || []).forEach((redeem: any) => {
         const itemId = redeem.item_id;
-        shopCount[itemId] = (shopCount[itemId] || 0) + 1;
+        if (itemId) {
+          shopCount[itemId] = (shopCount[itemId] || 0) + 1;
+        }
       });
 
       const shopPerfData = Object.entries(shopCount).map(([itemId, count]) => {
