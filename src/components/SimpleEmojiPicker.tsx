@@ -274,7 +274,7 @@ export function SimpleEmojiPicker({ value, onChange, placeholder = '🎁' }: Sim
                 </div>
               )}
             </div>
-          </div>
+          </div>npm
         </div>
       )}
     </div>
