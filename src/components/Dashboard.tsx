@@ -1,12 +1,12 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { Progress } from './ui/progress';
-import { 
-  Plus, 
-  TrendingUp, 
-  TrendingDown, 
+import {
+  Plus,
+  TrendingUp,
+  TrendingDown,
   Eye,
   EyeOff,
   Target,
@@ -22,10 +22,14 @@ import {
   Home,
   Heart,
   Coffee,
-  Fuel
+  Fuel,
+  Users,
+  Loader2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useApp } from '../utils/AppContext';
+import * as SupabaseModule from '../supabase/supabase.ts';
+const supabase = SupabaseModule.supabase;
 
 interface DashboardProps {
   onNavigate: (section: string) => void;
@@ -33,8 +37,16 @@ interface DashboardProps {
 
 export function Dashboard({ onNavigate }: DashboardProps) {
   const { state, getActiveGoals, getTodayTransactions, getRecentTransactions } = useApp();
-  
+
   const [showBalance, setShowBalance] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
+  const [dashboardStats, setDashboardStats] = useState({
+    totalUsers: 0,
+    totalCost: 0,
+    totalPrizesAwarded: 0,
+    totalShopSales: 0,
+    platformActivity: [] as any[]
+  });
 
   const activeGoals = getActiveGoals();
   const todayTransactions = getTodayTransactions();
@@ -54,12 +66,89 @@ export function Dashboard({ onNavigate }: DashboardProps) {
   const totalIncome = state.transactions
     .filter(t => t.type === 'income')
     .reduce((sum, t) => sum + t.amount, 0);
-  
+
   const totalExpenses = state.transactions
     .filter(t => t.type === 'expense')
     .reduce((sum, t) => sum + t.amount, 0);
-  
+
   const currentBalance = totalIncome - totalExpenses;
+
+  // Fetch Dashboard Data from Supabase
+  useEffect(() => {
+    fetchDashboardData();
+  }, []);
+
+  async function fetchDashboardData() {
+    setIsLoading(true);
+    try {
+      // 1. Count user_profiles (Total Users)
+      const { count: userCount } = await supabase
+        .from('user_profiles')
+        .select('*', { count: 'exact', head: true });
+
+      // 2. Count lucky_draw (Total Prizes Awarded)
+      const { count: prizesCount } = await supabase
+        .from('lucky_draw')
+        .select('*', { count: 'exact', head: true });
+
+      // 3. Count redeem (Total Shop Sales)
+      const { count: redeemCount } = await supabase
+        .from('redeem')
+        .select('*', { count: 'exact', head: true });
+
+      // 4. Platform Activity - Last 7 days (lucky_draw + redeem combined)
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+      const { data: luckyDraws } = await supabase
+        .from('lucky_draw')
+        .select('created_at')
+        .gte('created_at', sevenDaysAgo.toISOString());
+
+      const { data: redeems } = await supabase
+        .from('redeem')
+        .select('created_at')
+        .gte('created_at', sevenDaysAgo.toISOString());
+
+      // Generate last 7 days array
+      const last7Days = Array.from({ length: 7 }, (_, i) => {
+        const date = new Date();
+        date.setDate(date.getDate() - (6 - i));
+        return date.toISOString().split('T')[0];
+      });
+
+      // Calculate activity for each day
+      const platformActivity = last7Days.map(day => {
+        const luckyDrawCount = (luckyDraws || []).filter((d: any) => {
+          return new Date(d.created_at).toISOString().split('T')[0] === day;
+        }).length;
+
+        const redeemCount = (redeems || []).filter((r: any) => {
+          return new Date(r.created_at).toISOString().split('T')[0] === day;
+        }).length;
+
+        return {
+          date: day,
+          activity: luckyDrawCount + redeemCount,
+          luckyDrawCount,
+          redeemCount
+        };
+      });
+
+      setDashboardStats({
+        totalUsers: userCount || 0,
+        totalCost: 0, // Placeholder
+        totalPrizesAwarded: prizesCount || 0,
+        totalShopSales: redeemCount || 0,
+        platformActivity
+      });
+
+    } catch (error) {
+      console.error('Error fetching dashboard data:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  }
 
   const formatCurrency = (amount: number) => {
     return showBalance ? `RM ${amount.toFixed(2)}` : 'RM ****';
@@ -176,6 +265,113 @@ export function Dashboard({ onNavigate }: DashboardProps) {
               </div>
             </CardContent>
           </Card>
+        </motion.div>
+
+        {/* Platform Statistics */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.15 }}
+          className="space-y-4"
+        >
+          <div className="flex items-center gap-3">
+            <motion.div
+              animate={{ scale: [1, 1.1, 1] }}
+              transition={{ duration: 2, repeat: Infinity, repeatDelay: 3 }}
+              className="text-2xl"
+            >
+              📊
+            </motion.div>
+            <h2 className="text-xl font-bold text-gray-800">Platform Statistics</h2>
+          </div>
+
+          {isLoading ? (
+            <Card className="cartoon-card bg-white/80 backdrop-blur-sm border-0">
+              <CardContent className="p-6 flex items-center justify-center">
+                <Loader2 className="w-6 h-6 animate-spin text-purple-500" />
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid grid-cols-2 gap-4">
+              <motion.div
+                whileHover={{ scale: 1.02 }}
+                transition={{ duration: 0.2 }}
+              >
+                <Card className="cartoon-card bg-gradient-to-br from-blue-50 to-cyan-50 border-blue-200/30">
+                  <CardContent className="p-5">
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-r from-blue-400 to-cyan-400 flex items-center justify-center">
+                        <Users className="w-5 h-5 text-white" />
+                      </div>
+                      <div>
+                        <p className="text-2xl font-bold text-gray-800">{dashboardStats.totalUsers}</p>
+                        <p className="text-sm text-gray-600">Total Users</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+
+              <motion.div
+                whileHover={{ scale: 1.02 }}
+                transition={{ duration: 0.2 }}
+              >
+                <Card className="cartoon-card bg-gradient-to-br from-purple-50 to-pink-50 border-purple-200/30">
+                  <CardContent className="p-5">
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-r from-purple-400 to-pink-400 flex items-center justify-center">
+                        <Gift className="w-5 h-5 text-white" />
+                      </div>
+                      <div>
+                        <p className="text-2xl font-bold text-gray-800">{dashboardStats.totalPrizesAwarded}</p>
+                        <p className="text-sm text-gray-600">Prizes Won</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+
+              <motion.div
+                whileHover={{ scale: 1.02 }}
+                transition={{ duration: 0.2 }}
+              >
+                <Card className="cartoon-card bg-gradient-to-br from-green-50 to-emerald-50 border-green-200/30">
+                  <CardContent className="p-5">
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-r from-green-400 to-emerald-400 flex items-center justify-center">
+                        <ShoppingBag className="w-5 h-5 text-white" />
+                      </div>
+                      <div>
+                        <p className="text-2xl font-bold text-gray-800">{dashboardStats.totalShopSales}</p>
+                        <p className="text-sm text-gray-600">Items Redeemed</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+
+              <motion.div
+                whileHover={{ scale: 1.02 }}
+                transition={{ duration: 0.2 }}
+              >
+                <Card className="cartoon-card bg-gradient-to-br from-orange-50 to-yellow-50 border-orange-200/30">
+                  <CardContent className="p-5">
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-r from-orange-400 to-yellow-400 flex items-center justify-center">
+                        <TrendingUp className="w-5 h-5 text-white" />
+                      </div>
+                      <div>
+                        <p className="text-2xl font-bold text-gray-800">
+                          {dashboardStats.platformActivity.reduce((sum, day) => sum + day.activity, 0)}
+                        </p>
+                        <p className="text-sm text-gray-600">7-Day Activity</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            </div>
+          )}
         </motion.div>
 
         {/* Quick Actions */}

@@ -4,10 +4,10 @@ import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { Progress } from './ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
-import { 
-  TrendingUp, 
-  PieChart, 
-  BarChart3, 
+import {
+  TrendingUp,
+  PieChart,
+  BarChart3,
   DollarSign,
   Calendar,
   Filter,
@@ -28,10 +28,13 @@ import {
   Shield,
   PiggyBank,
   BookOpen,
-  Users
+  Users,
+  Loader2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useApp } from '../utils/AppContext';
+import * as SupabaseModule from '../supabase/supabase.ts';
+const supabase = SupabaseModule.supabase;
 
 interface InsightsProps {
   onNavigate: (section: string) => void;
@@ -42,7 +45,150 @@ export function Insights({ onNavigate, user }: InsightsProps) {
   const { state } = useApp();
   const [timeRange, setTimeRange] = useState('month');
   const [activeTab, setActiveTab] = useState('overview');
-  
+  const [isLoading, setIsLoading] = useState(true);
+  const [analyticsData, setAnalyticsData] = useState({
+    transactionHistory: [] as any[],
+    prizeDistribution: [] as any[],
+    shopPerformance: [] as any[]
+  });
+
+  // Fetch Analytics Data from Supabase
+  useEffect(() => {
+    fetchAnalyticsData();
+  }, []);
+
+  async function fetchAnalyticsData() {
+    setIsLoading(true);
+    try {
+      // 1. Recent Transaction History (lucky_draw + redeem merged)
+      const { data: luckyDraws } = await supabase
+        .from('lucky_draw')
+        .select(`
+          draw_id,
+          reward_id,
+          created_at,
+          user_profiles (username),
+          prizes (id, name, emoji, value)
+        `)
+        .order('created_at', { ascending: false })
+        .limit(20);
+
+      const { data: redeems } = await supabase
+        .from('redeem')
+        .select(`
+          redeem_id,
+          points_spent,
+          created_at,
+          user_profiles (username),
+          shop_items (id, name, emoji, points_cost)
+        `)
+        .order('created_at', { ascending: false })
+        .limit(20);
+
+      // Merge transactions
+      const drawTransactions = (luckyDraws || []).map((d: any) => ({
+        id: d.draw_id,
+        type: 'lucky_draw',
+        user: d.user_profiles?.username || 'Unknown User',
+        item: d.prizes?.name || 'Unknown Prize',
+        emoji: d.prizes?.emoji || '🎁',
+        value: d.prizes?.value || '',
+        created_at: d.created_at
+      }));
+
+      const redeemTransactions = (redeems || []).map((r: any) => ({
+        id: r.redeem_id,
+        type: 'redeem',
+        user: r.user_profiles?.username || 'Unknown User',
+        item: r.shop_items?.name || 'Unknown Item',
+        emoji: r.shop_items?.emoji || '🛍️',
+        value: `${r.points_spent || 0} pts`,
+        created_at: r.created_at
+      }));
+
+      const transactionHistory = [...drawTransactions, ...redeemTransactions]
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+        .slice(0, 15);
+
+      // 2. Prize Distribution (group by reward_id)
+      const { data: allDraws } = await supabase
+        .from('lucky_draw')
+        .select(`
+          reward_id,
+          prizes (id, name, emoji)
+        `);
+
+      const prizeMap: { [key: number]: { name: string; emoji: string; count: number } } = {};
+      (allDraws || []).forEach((draw: any) => {
+        const rewardId = draw.reward_id;
+        if (!prizeMap[rewardId]) {
+          prizeMap[rewardId] = {
+            name: draw.prizes?.name || 'Unknown Prize',
+            emoji: draw.prizes?.emoji || '🎁',
+            count: 0
+          };
+        }
+        prizeMap[rewardId].count += 1;
+      });
+
+      const prizeDistribution = Object.entries(prizeMap)
+        .map(([id, data]) => ({
+          id: parseInt(id),
+          name: data.name,
+          emoji: data.emoji,
+          timesWon: data.count
+        }))
+        .sort((a, b) => b.timesWon - a.timesWon)
+        .slice(0, 10);
+
+      // 3. Shop Performance (group by item_id)
+      const { data: allRedeems } = await supabase
+        .from('redeem')
+        .select(`
+          item_id,
+          points_spent,
+          shop_items (id, name, emoji, points_cost)
+        `);
+
+      const shopMap: { [key: string]: { name: string; emoji: string; count: number; totalPoints: number } } = {};
+      (allRedeems || []).forEach((redeem: any) => {
+        const itemId = redeem.item_id;
+        if (!shopMap[itemId]) {
+          shopMap[itemId] = {
+            name: redeem.shop_items?.name || 'Unknown Item',
+            emoji: redeem.shop_items?.emoji || '🛍️',
+            count: 0,
+            totalPoints: 0
+          };
+        }
+        shopMap[itemId].count += 1;
+        shopMap[itemId].totalPoints += (redeem.points_spent || redeem.shop_items?.points_cost || 0);
+      });
+
+      const shopPerformance = Object.entries(shopMap)
+        .map(([id, data]) => ({
+          id,
+          name: data.name,
+          emoji: data.emoji,
+          timesPurchased: data.count,
+          totalPoints: data.totalPoints
+        }))
+        .sort((a, b) => b.timesPurchased - a.timesPurchased)
+        .slice(0, 10);
+
+      setAnalyticsData({
+        transactionHistory,
+        prizeDistribution,
+        shopPerformance
+      });
+
+    } catch (error) {
+      console.error('Error fetching analytics data:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
   // Sample insights data with enhanced metrics
   const monthlySpending = [
     { category: 'Food & Dining', amount: 450, percentage: 35, trend: '+12%', budget: 400, emoji: '🍽️' },
@@ -468,11 +614,141 @@ export function Insights({ onNavigate, user }: InsightsProps) {
               </Card>
             </motion.div>
 
+            {/* Prize Distribution (from Supabase) */}
+            {!isLoading && analyticsData.prizeDistribution.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: 0.35 }}
+              >
+                <Card className="cartoon-card bg-gradient-to-br from-purple-50 to-pink-50 border-0">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-r from-purple-400 to-pink-400 flex items-center justify-center">
+                        <Award className="w-5 h-5 text-white" />
+                      </div>
+                      <div>
+                        <span className="text-lg font-bold text-gray-800">Prize Distribution</span>
+                        <p className="text-sm text-gray-600 font-normal">Most popular prizes</p>
+                      </div>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    {analyticsData.prizeDistribution.slice(0, 5).map((prize, index) => (
+                      <div key={prize.id} className="flex items-center justify-between p-3 rounded-xl bg-white/50">
+                        <div className="flex items-center gap-3">
+                          <span className="text-2xl">{prize.emoji}</span>
+                          <div>
+                            <p className="font-bold text-gray-800">{prize.name}</p>
+                            <p className="text-sm text-gray-600">{prize.timesWon} times won</p>
+                          </div>
+                        </div>
+                        <Badge className="bg-purple-500 text-white">#{index + 1}</Badge>
+                      </div>
+                    ))}
+                  </CardContent>
+                </Card>
+              </motion.div>
+            )}
+
+            {/* Shop Performance (from Supabase) */}
+            {!isLoading && analyticsData.shopPerformance.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: 0.4 }}
+              >
+                <Card className="cartoon-card bg-gradient-to-br from-green-50 to-emerald-50 border-0">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-r from-green-400 to-emerald-400 flex items-center justify-center">
+                        <Sparkles className="w-5 h-5 text-white" />
+                      </div>
+                      <div>
+                        <span className="text-lg font-bold text-gray-800">Top Shop Items</span>
+                        <p className="text-sm text-gray-600 font-normal">Most redeemed items</p>
+                      </div>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    {analyticsData.shopPerformance.slice(0, 5).map((item, index) => (
+                      <div key={item.id} className="flex items-center justify-between p-3 rounded-xl bg-white/50">
+                        <div className="flex items-center gap-3">
+                          <span className="text-2xl">{item.emoji}</span>
+                          <div>
+                            <p className="font-bold text-gray-800">{item.name}</p>
+                            <p className="text-sm text-gray-600">{item.timesPurchased} redemptions · {item.totalPoints} pts total</p>
+                          </div>
+                        </div>
+                        <Badge className="bg-green-500 text-white">#{index + 1}</Badge>
+                      </div>
+                    ))}
+                  </CardContent>
+                </Card>
+              </motion.div>
+            )}
+
+            {/* Recent Transactions (from Supabase) */}
+            {!isLoading && analyticsData.transactionHistory.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: 0.45 }}
+              >
+                <Card className="cartoon-card bg-gradient-to-br from-blue-50 to-cyan-50 border-0">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-r from-blue-400 to-cyan-400 flex items-center justify-center">
+                        <Calendar className="w-5 h-5 text-white" />
+                      </div>
+                      <div>
+                        <span className="text-lg font-bold text-gray-800">Recent Activity</span>
+                        <p className="text-sm text-gray-600 font-normal">Latest platform transactions</p>
+                      </div>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2 max-h-96 overflow-y-auto">
+                    {analyticsData.transactionHistory.map((tx, index) => (
+                      <div key={`${tx.type}-${tx.id}`} className="flex items-center justify-between p-3 rounded-xl bg-white/50">
+                        <div className="flex items-center gap-3">
+                          <span className="text-xl">{tx.emoji}</span>
+                          <div>
+                            <p className="font-medium text-gray-800">{tx.user}</p>
+                            <p className="text-sm text-gray-600">
+                              {tx.type === 'lucky_draw' ? '🎁 Won' : '🛍️ Redeemed'}: {tx.item}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <Badge className={tx.type === 'lucky_draw' ? 'bg-purple-100 text-purple-800' : 'bg-green-100 text-green-800'}>
+                            {tx.value}
+                          </Badge>
+                          <p className="text-xs text-gray-500 mt-1">
+                            {new Date(tx.created_at).toLocaleDateString()}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </CardContent>
+                </Card>
+              </motion.div>
+            )}
+
+            {/* Loading State */}
+            {isLoading && (
+              <Card className="cartoon-card bg-white/80 backdrop-blur-sm border-0">
+                <CardContent className="p-6 flex items-center justify-center">
+                  <Loader2 className="w-6 h-6 animate-spin text-purple-500 mr-2" />
+                  <span className="text-gray-600">Loading platform insights...</span>
+                </CardContent>
+              </Card>
+            )}
+
             {/* Category Breakdown */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.4 }}
+              transition={{ duration: 0.5, delay: 0.5 }}
               className="space-y-4"
             >
               <div className="flex items-center gap-2">
