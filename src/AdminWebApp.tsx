@@ -110,6 +110,8 @@ interface DashboardStats {
   totalCost: number;
   totalPrizesAwarded: number;
   totalShopSales: number;
+  recentActivity: any[];
+  platformActivity: any[];
 }
 
 interface AnalyticsData {
@@ -151,6 +153,8 @@ export default function AdminWebApp({ user, onLogout }: AdminWebAppProps) {
     totalCost: 0,
     totalPrizesAwarded: 0,
     totalShopSales: 0,
+    recentActivity: [],
+    platformActivity: [],
   });
 
   const [analyticsData, setAnalyticsData] = useState<AnalyticsData>({
@@ -167,38 +171,108 @@ export default function AdminWebApp({ user, onLogout }: AdminWebAppProps) {
   async function fetchDashboardData() {
     setIsDashboardLoading(true);
     try {
+      // 1. Count user_profiles
       const userCountRes = await supabase.from('user_profiles').select('*', { count: 'exact', head: true });
-      const prizesRes = await supabase.from('prizes').select('value, timesWon');
-      const shopRes = await supabase.from('shop_items').select('pointsCost, timesPurchased');
-
       const totalUsers = userCountRes.count ?? 0;
 
-      const totalPrizesAwarded = prizesRes.data?.reduce(
-        (acc, prize) => acc + (prize.timesWon || 0), 0
-      ) ?? 0;
+      // 2. Count lucky_draw (Total Prizes Awarded)
+      const luckyDrawCountRes = await supabase.from('lucky_draw').select('*', { count: 'exact', head: true });
+      const totalPrizesAwarded = luckyDrawCountRes.count ?? 0;
 
-      const totalShopSales = shopRes.data?.reduce(
-        (acc, item) => acc + (item.timesPurchased || 0), 0
-      ) ?? 0;
+      // 3. Count redeem (Total Shop Sales)
+      const redeemCountRes = await supabase.from('redeem').select('*', { count: 'exact', head: true });
+      const totalShopSales = redeemCountRes.count ?? 0;
 
-      const totalShopCost = shopRes.data?.reduce(
-        (acc, item) => acc + (item.pointsCost || 0) * (item.timesPurchased || 0), 0
-      ) ?? 0;
+      // 4. Fetch last 10 lucky_draw records for Recent Activity
+      const { data: luckyDrawData } = await supabase
+        .from('lucky_draw')
+        .select(`
+          draw_id,
+          prize_won,
+          created_at,
+          user_id,
+          prizes (emoji, value)
+        `)
+        .order('created_at', { ascending: false })
+        .limit(10);
 
-      const totalPrizeCost = prizesRes.data?.reduce(
-        (acc, prize) => {
-          const prizeValue = parseFloat(prize.value) || 0;
-          return acc + (prizeValue * (prize.timesWon || 0));
-        }, 0
-      ) ?? 0;
+      // 5. Fetch last 10 redeem records for Recent Activity
+      const { data: redeemData } = await supabase
+        .from('redeem')
+        .select(`
+          redeem_id,
+          item_name,
+          points_spent,
+          created_at,
+          user_id,
+          shop_items (name, emoji)
+        `)
+        .order('created_at', { ascending: false })
+        .limit(10);
 
-      const totalCost = totalShopCost + totalPrizeCost;
+      // 6. Merge and sort Recent Activity
+      const drawActivity = (luckyDrawData || []).map((d: any) => ({
+        id: d.draw_id,
+        type: 'lucky_draw',
+        user: `User ${d.user_id}`,
+        item: d.prize_won || 'Prize',
+        emoji: d.prizes?.emoji || '🎁',
+        value: d.prizes?.value || d.prize_won || '',
+        createdAt: d.created_at
+      }));
+
+      const redeemActivity = (redeemData || []).map((r: any) => ({
+        id: r.redeem_id,
+        type: 'redeem',
+        user: `User ${r.user_id}`,
+        item: r.item_name || r.shop_items?.name || 'Item',
+        emoji: r.shop_items?.emoji || '🛍️',
+        value: `${r.points_spent || 0} pts`,
+        createdAt: r.created_at
+      }));
+
+      const recentActivity = [...drawActivity, ...redeemActivity]
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        .slice(0, 10);
+
+      // 7. Platform Activity (last 7 days lucky_draw count)
+      const last7Days = Array.from({ length: 7 }, (_, i) => {
+        const date = new Date();
+        date.setDate(date.getDate() - (6 - i));
+        return date.toISOString().split('T')[0];
+      });
+
+      // Fetch all lucky_draw for last 7 days
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+      const { data: allDrawsLast7Days } = await supabase
+        .from('lucky_draw')
+        .select('created_at')
+        .gte('created_at', sevenDaysAgo.toISOString());
+
+      const platformActivity = last7Days.map(day => {
+        const count = (allDrawsLast7Days || []).filter((draw: any) => {
+          const drawDate = new Date(draw.created_at).toISOString().split('T')[0];
+          return drawDate === day;
+        }).length;
+
+        return {
+          date: day,
+          count,
+          label: new Date(day).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+        };
+      });
+
+      // 8. Calculate total cost (optional - can set to 0 if not needed)
+      const totalCost = 0; // Placeholder
 
       setDashboardStats({
         totalUsers,
         totalCost,
         totalPrizesAwarded,
-        totalShopSales
+        totalShopSales,
+        recentActivity,
+        platformActivity
       });
 
     } catch (error) {
@@ -213,31 +287,126 @@ export default function AdminWebApp({ user, onLogout }: AdminWebAppProps) {
   async function fetchAnalyticsData() {
     setIsAnalyticsLoading(true);
     try {
+      // 1. Recent User Activity
       const userActivityRes = await supabase.from('user_profiles')
-          .select('id, created_at, full_name, email')
+          .select('id, created_at, username, email')
           .order('created_at', { ascending: false })
           .limit(10);
 
-      const transactionHistoryRes = await supabase.from('transactions')
-          .select('created_at, description, amount, type, user_profiles(full_name, email)')
-          .order('created_at', { ascending: false })
-          .limit(10);
+      // 2. Recent Transaction History (lucky_draw + redeem merged)
+      const { data: luckyDrawData } = await supabase
+        .from('lucky_draw')
+        .select(`
+          draw_id,
+          prize_won,
+          created_at,
+          user_id,
+          prizes (emoji, value)
+        `)
+        .order('created_at', { ascending: false })
+        .limit(10);
 
-      const prizeDistributionRes = await supabase.from('prizes')
-          .select('id, name, timesWon, type')
-          .order('timesWon', { ascending: false })
-          .limit(5);
+      const { data: redeemData } = await supabase
+        .from('redeem')
+        .select(`
+          redeem_id,
+          item_name,
+          points_spent,
+          created_at,
+          user_id,
+          shop_items (name, emoji)
+        `)
+        .order('created_at', { ascending: false })
+        .limit(10);
 
-      const shopPerformanceRes = await supabase.from('shop_items')
-          .select('id, name, timesPurchased, pointsCost')
-          .order('timesPurchased', { ascending: false })
-          .limit(5);
+      // Merge transactions
+      const drawTransactions = (luckyDrawData || []).map((d: any) => ({
+        id: d.draw_id,
+        type: 'lucky_draw',
+        description: `Won: ${d.prize_won || 'Prize'}`,
+        user: `User ${d.user_id}`,
+        amount: d.prizes?.value || d.prize_won || '',
+        created_at: d.created_at
+      }));
+
+      const redeemTransactions = (redeemData || []).map((r: any) => ({
+        id: r.redeem_id,
+        type: 'redeem',
+        description: `Redeemed: ${r.item_name || r.shop_items?.name || 'Item'}`,
+        user: `User ${r.user_id}`,
+        amount: `${r.points_spent || 0} pts`,
+        created_at: r.created_at
+      }));
+
+      const transactionHistory = [...drawTransactions, ...redeemTransactions]
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+        .slice(0, 10);
+
+      // 3. Top Prize Distribution (group lucky_draw by prize_won)
+      const { data: allDraws } = await supabase
+        .from('lucky_draw')
+        .select('prize_won, prizes (emoji)');
+
+      const prizeCounts: { [key: string]: { count: number; emoji: string } } = {};
+      (allDraws || []).forEach((draw: any) => {
+        const prizeName = draw.prize_won || 'Unknown';
+        if (!prizeCounts[prizeName]) {
+          prizeCounts[prizeName] = { count: 0, emoji: draw.prizes?.emoji || '🎁' };
+        }
+        prizeCounts[prizeName].count += 1;
+      });
+
+      const prizeDistribution = Object.entries(prizeCounts)
+        .map(([name, data]) => ({
+          id: name,
+          name: name,
+          type: 'prize',
+          timesWon: data.count,
+          emoji: data.emoji
+        }))
+        .sort((a, b) => b.timesWon - a.timesWon)
+        .slice(0, 5);
+
+      // 4. Top Shop Performance (group redeem by item_name/item_id)
+      const { data: allRedeems } = await supabase
+        .from('redeem')
+        .select(`
+          item_name,
+          item_id,
+          points_spent,
+          shop_items (name, emoji, points_cost)
+        `);
+
+      const itemCounts: { [key: string]: { count: number; totalPoints: number; emoji: string } } = {};
+      (allRedeems || []).forEach((redeem: any) => {
+        const itemName = redeem.item_name || redeem.shop_items?.name || 'Unknown';
+        if (!itemCounts[itemName]) {
+          itemCounts[itemName] = {
+            count: 0,
+            totalPoints: 0,
+            emoji: redeem.shop_items?.emoji || '🛍️'
+          };
+        }
+        itemCounts[itemName].count += 1;
+        itemCounts[itemName].totalPoints += (redeem.points_spent || redeem.shop_items?.points_cost || 0);
+      });
+
+      const shopPerformance = Object.entries(itemCounts)
+        .map(([name, data]) => ({
+          id: name,
+          name: name,
+          timesPurchased: data.count,
+          pointsCost: data.totalPoints,
+          emoji: data.emoji
+        }))
+        .sort((a, b) => b.timesPurchased - a.timesPurchased)
+        .slice(0, 5);
 
       setAnalyticsData({
         userActivity: userActivityRes.data ?? [],
-        transactionHistory: transactionHistoryRes.data ?? [],
-        prizeDistribution: prizeDistributionRes.data ?? [],
-        shopPerformance: shopPerformanceRes.data ?? [],
+        transactionHistory: transactionHistory,
+        prizeDistribution: prizeDistribution,
+        shopPerformance: shopPerformance,
       });
 
     } catch (error) {
@@ -783,7 +952,7 @@ export default function AdminWebApp({ user, onLogout }: AdminWebAppProps) {
                      <TableRow><TableCell colSpan={3} className="text-center h-24">No user activity found.</TableCell></TableRow>
                   ) : analyticsData.userActivity.map((activity) => (
                     <TableRow key={activity.id}>
-                      <TableCell>{activity.full_name || 'N/A'}</TableCell>
+                      <TableCell>{activity.username || 'N/A'}</TableCell>
                       <TableCell>{activity.email}</TableCell>
                       <TableCell>{new Date(activity.created_at).toLocaleDateString()}</TableCell>
                     </TableRow>
@@ -816,10 +985,10 @@ export default function AdminWebApp({ user, onLogout }: AdminWebAppProps) {
                      <TableRow><TableCell colSpan={4} className="text-center h-24">No transaction history found.</TableCell></TableRow>
                   ) : analyticsData.transactionHistory.map((tx, index) => (
                     <TableRow key={index}>
-                      <TableCell>{tx.user_profiles?.full_name || 'N/A'}</TableCell>
+                      <TableCell>{tx.user}</TableCell>
                       <TableCell>{tx.description}</TableCell>
-                      <TableCell className={tx.type === 'income' ? 'text-green-500' : 'text-red-500'}>
-                        {tx.type === 'income' ? '+' : '-'}${tx.amount.toFixed(2)}
+                      <TableCell className={tx.type === 'lucky_draw' ? 'text-green-500' : 'text-orange-500'}>
+                        {tx.amount}
                       </TableCell>
                       <TableCell>{new Date(tx.created_at).toLocaleString()}</TableCell>
                     </TableRow>
