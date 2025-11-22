@@ -223,13 +223,27 @@ export function AdminPanel({ onBack, user, defaultTab = 'overview' }: AdminPanel
         setShopItems(formattedShopItems);
       }
 
-      // Fetch lucky_draw records with explicit foreign key joins
+      // Fetch lucky_draw records with JOIN to prizes table
       const { data: luckyDrawData, error: luckyDrawError } = await supabase
         .from('lucky_draw')
         .select(`
-          *,
-          prize:prizes!reward_id ( name, emoji, value ),
-          user:user_profiles!user_id ( username )
+          draw_id,
+          user_id,
+          reward_id,
+          prize_won,
+          point_used,
+          date,
+          created_at,
+          prizes (
+            id,
+            name,
+            type,
+            value,
+            emoji
+          ),
+          user_profiles (
+            username
+          )
         `)
         .order('created_at', { ascending: false });
 
@@ -237,13 +251,27 @@ export function AdminPanel({ onBack, user, defaultTab = 'overview' }: AdminPanel
       setLuckyDrawRecords(luckyDrawData || []);
       setTotalPrizesAwarded(luckyDrawData?.length || 0);
 
-      // Fetch redeem records with explicit foreign key joins
+      // Fetch redeem records with JOIN to shop_items table
       const { data: redeemData, error: redeemError } = await supabase
         .from('redeem')
         .select(`
-          *,
-          item:shop_items!item_id ( name, emoji, points_cost ),
-          user:user_profiles!user_id ( username )
+          redeem_id,
+          user_id,
+          item_id,
+          item_name,
+          points_spent,
+          status,
+          created_at,
+          shop_items (
+            id,
+            name,
+            category,
+            points_cost,
+            emoji
+          ),
+          user_profiles (
+            username
+          )
         `)
         .order('created_at', { ascending: false });
 
@@ -266,10 +294,10 @@ export function AdminPanel({ onBack, user, defaultTab = 'overview' }: AdminPanel
         return {
           id: d.draw_id,
           type: 'lucky_draw',
-          user: d.user?.username || `User ${d.user_id}`,
-          item: d.prize_won || d.prize?.name || 'Prize',
-          emoji: d.prize?.emoji || '🎁',
-          value: d.prize?.value || d.prize_won || '',
+          user: d.user_profiles?.username ?? `User ${d.user_id}`,
+          item: d.prize_won || d.prizes?.name || 'Prize',
+          emoji: d.prizes?.emoji || '🎁',
+          value: d.prizes?.value || d.prize_won || '',
           createdAt: d.created_at
         };
       });
@@ -278,10 +306,10 @@ export function AdminPanel({ onBack, user, defaultTab = 'overview' }: AdminPanel
         return {
           id: r.redeem_id,
           type: 'redeem',
-          user: r.user?.username || `User ${r.user_id}`,
-          item: r.item_name || r.item?.name || 'Item',
-          emoji: r.item?.emoji || '🛍️',
-          value: `${r.points_spent || r.item?.points_cost || 0} pts`,
+          user: r.user_profiles?.username ?? `User ${r.user_id}`,
+          item: r.item_name || r.shop_items?.name || 'Item',
+          emoji: r.shop_items?.emoji || '🛍️',
+          value: `${r.points_spent || r.shop_items?.points_cost || 0} pts`,
           createdAt: r.created_at
         };
       });
@@ -293,12 +321,12 @@ export function AdminPanel({ onBack, user, defaultTab = 'overview' }: AdminPanel
       setRecentActivity(combinedActivity);
 
       // Calculate prize distribution (group by reward_id)
-      const prizeCount: { [key: string]: { count: number; prize: any } } = {};
+      const prizeCount: { [key: string]: { count: number; prizes: any } } = {};
       (luckyDrawData || []).forEach((draw: any) => {
         const rewardId = draw.reward_id;
         if (rewardId) {
           if (!prizeCount[rewardId]) {
-            prizeCount[rewardId] = { count: 0, prize: draw.prize };
+            prizeCount[rewardId] = { count: 0, prizes: draw.prizes };
           }
           prizeCount[rewardId].count += 1;
         }
@@ -307,8 +335,8 @@ export function AdminPanel({ onBack, user, defaultTab = 'overview' }: AdminPanel
       const prizeDistData = Object.entries(prizeCount).map(([rewardId, data]) => {
         return {
           prizeId: rewardId,
-          prizeName: data.prize?.name || 'Unknown Prize',
-          emoji: data.prize?.emoji || '🎁',
+          prizeName: data.prizes?.name ?? 'Unknown',
+          emoji: data.prizes?.emoji || '🎁',
           count: data.count,
           percentage: luckyDrawData && luckyDrawData.length > 0
             ? ((data.count / luckyDrawData.length) * 100).toFixed(1)
@@ -319,23 +347,23 @@ export function AdminPanel({ onBack, user, defaultTab = 'overview' }: AdminPanel
       setPrizeDistribution(prizeDistData);
 
       // Calculate shop performance (group by item_id)
-      const shopCount: { [key: string]: { count: number; item: any; totalPoints: number } } = {};
+      const shopCount: { [key: string]: { count: number; shop_items: any; totalPoints: number } } = {};
       (redeemData || []).forEach((redeem: any) => {
         const itemId = redeem.item_id;
         if (itemId) {
           if (!shopCount[itemId]) {
-            shopCount[itemId] = { count: 0, item: redeem.item, totalPoints: 0 };
+            shopCount[itemId] = { count: 0, shop_items: redeem.shop_items, totalPoints: 0 };
           }
           shopCount[itemId].count += 1;
-          shopCount[itemId].totalPoints += (redeem.points_spent || redeem.item?.points_cost || 0);
+          shopCount[itemId].totalPoints += (redeem.points_spent || redeem.shop_items?.points_cost || 0);
         }
       });
 
       const shopPerfData = Object.entries(shopCount).map(([itemId, data]) => {
         return {
           itemId,
-          itemName: data.item?.name || 'Unknown Item',
-          emoji: data.item?.emoji || '🛍️',
+          itemName: data.shop_items?.name ?? 'Unknown',
+          emoji: data.shop_items?.emoji || '🛍️',
           count: data.count,
           totalPoints: data.totalPoints
         };
