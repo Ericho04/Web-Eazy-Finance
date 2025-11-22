@@ -645,15 +645,14 @@ export default function AdminWebApp({ user, onLogout }: AdminWebAppProps) {
 
     const stats = [ // <-- [修复] 确保这里有 [ ... ]
       { name: 'Total Users', value: dashboardStats.totalUsers, icon: Users, trend: 12, trendType: 'up' },
-      { name: 'Total Cost', value: `$${dashboardStats.totalCost.toFixed(2)}`, icon: DollarSign, trend: 5, trendType: 'up' },
       { name: 'Prizes Awarded', value: dashboardStats.totalPrizesAwarded, icon: Gift, trend: 20, trendType: 'up' },
       { name: 'Shop Sales', value: dashboardStats.totalShopSales, icon: ShoppingCart, trend: 3, trendType: 'down' },
     ];
 
     if (isDashboardLoading) {
       return (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {[...Array(4)].map((_, i) => (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {[...Array(3)].map((_, i) => (
             <Card key={i} className="animate-pulse">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <div className="h-4 bg-gray-300 rounded w-1/3"></div>
@@ -678,7 +677,7 @@ export default function AdminWebApp({ user, onLogout }: AdminWebAppProps) {
 
         {/* Stat Cards */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {stats.map((stat, index) => (
               <motion.div key={stat.name} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 + index * 0.1 }}>
                 <Card className="hover:shadow-lg transition-shadow duration-300">
@@ -705,33 +704,15 @@ export default function AdminWebApp({ user, onLogout }: AdminWebAppProps) {
 
         {/* Chart/Activity Placeholders */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}>
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <Card className="lg:col-span-2">
-              <CardHeader>
-                <CardTitle>Platform Activity</CardTitle>
-                <CardDescription>A chart showing user signups and transactions over time.</CardDescription>
-              </CardHeader>
-              <CardContent className="h-80 flex items-center justify-center">
-                <p className="text-muted-foreground">(Line/Bar Chart Placeholder)</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle>Recent Activity</CardTitle>
-                <CardDescription>A feed of recent platform events.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center gap-3">
-                  <Avatar className="h-8 w-8">
-                    <AvatarFallback>U</AvatarFallback>
-                  </Avatar>
-                  <p className="text-sm">New user <span className="font-medium">"user@example.com"</span> signed up.</p>
-                  <span className="text-xs text-muted-foreground ml-auto">10m ago</span>
-                </div>
-                {/* ... other placeholder activities ... */}
-              </CardContent>
-            </Card>
-          </div>
+          <Card>
+            <CardHeader>
+              <CardTitle>Platform Activity</CardTitle>
+              <CardDescription>A chart showing user signups and transactions over time.</CardDescription>
+            </CardHeader>
+            <CardContent className="h-80 flex items-center justify-center">
+              <p className="text-muted-foreground">(Line/Bar Chart Placeholder)</p>
+            </CardContent>
+          </Card>
         </motion.div>
       </div>
     );
@@ -932,40 +913,8 @@ export default function AdminWebApp({ user, onLogout }: AdminWebAppProps) {
           <p className="text-muted-foreground">Deep dive into your platform's data.</p>
         </motion.div>
 
-        {/* Recent User Activity */}
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
-          <Card>
-            <CardHeader>
-              <CardTitle>Recent User Activity</CardTitle>
-              <CardDescription>New users who signed up recently.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>User</TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead>Signed Up</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {analyticsData.userActivity.length === 0 ? (
-                     <TableRow><TableCell colSpan={3} className="text-center h-24">No user activity found.</TableCell></TableRow>
-                  ) : analyticsData.userActivity.map((activity) => (
-                    <TableRow key={activity.id}>
-                      <TableCell>{activity.username || 'N/A'}</TableCell>
-                      <TableCell>{activity.email}</TableCell>
-                      <TableCell>{new Date(activity.created_at).toLocaleDateString()}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        </motion.div>
-
         {/* Recent Transaction History */}
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
           <Card>
             <CardHeader>
               <CardTitle>Recent Transaction History</CardTitle>
@@ -1001,7 +950,7 @@ export default function AdminWebApp({ user, onLogout }: AdminWebAppProps) {
         </motion.div>
 
         {/* Top Prize Distribution */}
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
           <Card>
             <CardHeader>
               <CardTitle>Top Prize Distribution</CardTitle>
@@ -1032,7 +981,7 @@ export default function AdminWebApp({ user, onLogout }: AdminWebAppProps) {
         </motion.div>
 
         {/* Top Shop Performance */}
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}>
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
           <Card>
             <CardHeader>
               <CardTitle>Top Shop Performance</CardTitle>
@@ -1042,7 +991,7 @@ export default function AdminWebApp({ user, onLogout }: AdminWebAppProps) {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Item</TableHead>
-                    <TableHead>Points Cost</TableHead>
+                    <TableHead>Total Points</TableHead>
                     <TableHead>Times Purchased</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -1052,7 +1001,7 @@ export default function AdminWebApp({ user, onLogout }: AdminWebAppProps) {
                   ) : analyticsData.shopPerformance.map((item) => (
                     <TableRow key={item.id}>
                       <TableCell>{item.name}</TableCell>
-                      <TableCell>{item.pointsCost.toFixed(2)}</TableCell>
+                      <TableCell>{item.totalPoints}</TableCell>
                       <TableCell>{item.timesPurchased}</TableCell>
                     </TableRow>
                   ))}
