@@ -12,16 +12,16 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from './ui/alert-dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 import { toast } from 'sonner@2.0.3';
-import { 
-  Settings, 
-  Plus, 
-  Edit, 
-  Trash2, 
-  Save, 
-  X, 
-  Gift, 
-  ShoppingBag, 
-  Star, 
+import {
+  Settings,
+  Plus,
+  Edit,
+  Trash2,
+  Save,
+  X,
+  Gift,
+  ShoppingBag,
+  Star,
   BarChart3,
   Users,
   TrendingUp,
@@ -34,9 +34,14 @@ import {
   Copy,
   Percent,
   Package,
-  DollarSign
+  DollarSign,
+  Trophy,
+  ShoppingCart,
+  Activity,
+  Clock
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { supabase } from '../supabase/supabase';
 
 interface AdminPanelProps {
   onBack: () => void;
@@ -152,6 +157,202 @@ export function AdminPanel({ onBack, user, defaultTab = 'overview' }: AdminPanel
   // Form states
   const [prizeForm, setPrizeForm] = useState<Partial<Prize>>({});
   const [shopForm, setShopForm] = useState<Partial<ShopItem>>({});
+
+  // Analytics & Dashboard data from Supabase
+  const [luckyDrawRecords, setLuckyDrawRecords] = useState<any[]>([]);
+  const [redeemRecords, setRedeemRecords] = useState<any[]>([]);
+  const [userProfiles, setUserProfiles] = useState<any[]>([]);
+  const [totalPrizesAwarded, setTotalPrizesAwarded] = useState(0);
+  const [totalShopSales, setTotalShopSales] = useState(0);
+  const [recentActivity, setRecentActivity] = useState<any[]>([]);
+  const [prizeDistribution, setPrizeDistribution] = useState<any[]>([]);
+  const [shopPerformance, setShopPerformance] = useState<any[]>([]);
+  const [platformActivity, setPlatformActivity] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Fetch all data from Supabase
+  useEffect(() => {
+    fetchAllData();
+  }, []);
+
+  const fetchAllData = async () => {
+    setIsLoading(true);
+    try {
+      // Fetch prizes from Supabase
+      const { data: prizesData, error: prizesError } = await supabase
+        .from('prizes')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (prizesError) throw prizesError;
+      if (prizesData) {
+        const formattedPrizes = prizesData.map((p: any) => ({
+          id: p.id,
+          name: p.name,
+          description: p.description || '',
+          type: p.type,
+          value: p.value,
+          probability: p.probability || 0,
+          color: p.color || 'from-blue-400 to-purple-500',
+          emoji: p.emoji || '🎁',
+          isActive: p.is_active !== false
+        }));
+        setPrizes(formattedPrizes);
+      }
+
+      // Fetch shop items from Supabase
+      const { data: shopItemsData, error: shopItemsError } = await supabase
+        .from('shop_items')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (shopItemsError) throw shopItemsError;
+      if (shopItemsData) {
+        const formattedShopItems = shopItemsData.map((item: any) => ({
+          id: item.id,
+          name: item.name,
+          description: item.description || '',
+          category: item.category,
+          pointsCost: item.points_cost,
+          originalValue: item.original_value || '',
+          discount: item.discount || 0,
+          emoji: item.emoji || '🎁',
+          availability: item.availability || 0,
+          isPopular: item.is_popular || false,
+          isLimited: item.is_limited || false,
+          isActive: item.is_active !== false
+        }));
+        setShopItems(formattedShopItems);
+      }
+
+      // Fetch lucky_draw records
+      const { data: luckyDrawData, error: luckyDrawError } = await supabase
+        .from('lucky_draw')
+        .select('*, prizes(name, emoji, value), user_profiles(username)')
+        .order('created_at', { ascending: false });
+
+      if (luckyDrawError) throw luckyDrawError;
+      setLuckyDrawRecords(luckyDrawData || []);
+      setTotalPrizesAwarded(luckyDrawData?.length || 0);
+
+      // Fetch redeem records
+      const { data: redeemData, error: redeemError } = await supabase
+        .from('redeem')
+        .select('*, shop_items(name, emoji, points_cost), user_profiles(username)')
+        .order('created_at', { ascending: false });
+
+      if (redeemError) throw redeemError;
+      setRedeemRecords(redeemData || []);
+      setTotalShopSales(redeemData?.length || 0);
+
+      // Fetch user profiles
+      const { data: usersData, error: usersError } = await supabase
+        .from('user_profiles')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      if (usersError) throw usersError;
+      setUserProfiles(usersData || []);
+
+      // Calculate recent activity (merge lucky_draw and redeem)
+      const drawActivity = (luckyDrawData || []).slice(0, 10).map((d: any) => ({
+        id: d.id,
+        type: 'lucky_draw',
+        user: d.user_profiles?.username || 'Unknown',
+        item: d.prizes?.name || 'Prize',
+        emoji: d.prizes?.emoji || '🎁',
+        value: d.prizes?.value || '',
+        createdAt: d.created_at
+      }));
+
+      const redeemActivity = (redeemData || []).slice(0, 10).map((r: any) => ({
+        id: r.id,
+        type: 'redeem',
+        user: r.user_profiles?.username || 'Unknown',
+        item: r.shop_items?.name || 'Item',
+        emoji: r.shop_items?.emoji || '🛍️',
+        value: `${r.shop_items?.points_cost || 0} pts`,
+        createdAt: r.created_at
+      }));
+
+      const combinedActivity = [...drawActivity, ...redeemActivity]
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        .slice(0, 10);
+
+      setRecentActivity(combinedActivity);
+
+      // Calculate prize distribution (group by prize_id)
+      const prizeCount: { [key: string]: number } = {};
+      (luckyDrawData || []).forEach((draw: any) => {
+        const prizeId = draw.prize_id;
+        prizeCount[prizeId] = (prizeCount[prizeId] || 0) + 1;
+      });
+
+      const prizeDistData = Object.entries(prizeCount).map(([prizeId, count]) => {
+        const prize = prizesData?.find((p: any) => p.id === prizeId);
+        return {
+          prizeId,
+          prizeName: prize?.name || 'Unknown Prize',
+          emoji: prize?.emoji || '🎁',
+          count,
+          percentage: luckyDrawData && luckyDrawData.length > 0
+            ? ((count / luckyDrawData.length) * 100).toFixed(1)
+            : 0
+        };
+      }).sort((a, b) => b.count - a.count);
+
+      setPrizeDistribution(prizeDistData);
+
+      // Calculate shop performance (group by item_id)
+      const shopCount: { [key: string]: number } = {};
+      (redeemData || []).forEach((redeem: any) => {
+        const itemId = redeem.item_id;
+        shopCount[itemId] = (shopCount[itemId] || 0) + 1;
+      });
+
+      const shopPerfData = Object.entries(shopCount).map(([itemId, count]) => {
+        const item = shopItemsData?.find((i: any) => i.id === itemId);
+        return {
+          itemId,
+          itemName: item?.name || 'Unknown Item',
+          emoji: item?.emoji || '🛍️',
+          count,
+          totalPoints: (item?.points_cost || 0) * count
+        };
+      }).sort((a, b) => b.count - a.count);
+
+      setShopPerformance(shopPerfData);
+
+      // Calculate platform activity (lucky_draw count per day for last 7 days)
+      const last7Days = Array.from({ length: 7 }, (_, i) => {
+        const date = new Date();
+        date.setDate(date.getDate() - (6 - i));
+        return date.toISOString().split('T')[0];
+      });
+
+      const activityByDay = last7Days.map(day => {
+        const count = (luckyDrawData || []).filter((draw: any) => {
+          const drawDate = new Date(draw.created_at).toISOString().split('T')[0];
+          return drawDate === day;
+        }).length;
+
+        return {
+          date: day,
+          count,
+          label: new Date(day).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+        };
+      });
+
+      setPlatformActivity(activityByDay);
+
+    } catch (error: any) {
+      console.error('Error fetching data:', error);
+      toast.error('Failed to load data from database');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const resetPrizeForm = () => {
     setPrizeForm({
@@ -407,32 +608,32 @@ export function AdminPanel({ onBack, user, defaultTab = 'overview' }: AdminPanel
             <Card className="cartoon-card bg-gradient-to-br from-blue-50 to-purple-50">
               <CardContent className="p-4 text-center">
                 <Gift className="w-8 h-8 mx-auto mb-2 text-purple-500" />
-                <p className="text-2xl font-bold text-purple-600">{totalActivePrizes}</p>
+                <p className="text-2xl font-bold text-purple-600">{isLoading ? '...' : totalActivePrizes}</p>
                 <p className="text-sm text-gray-600">Active Prizes</p>
               </CardContent>
             </Card>
-            
+
             <Card className="cartoon-card bg-gradient-to-br from-pink-50 to-red-50">
               <CardContent className="p-4 text-center">
                 <ShoppingBag className="w-8 h-8 mx-auto mb-2 text-pink-500" />
-                <p className="text-2xl font-bold text-pink-600">{totalActiveShopItems}</p>
+                <p className="text-2xl font-bold text-pink-600">{isLoading ? '...' : totalActiveShopItems}</p>
                 <p className="text-sm text-gray-600">Shop Items</p>
               </CardContent>
             </Card>
-            
+
             <Card className="cartoon-card bg-gradient-to-br from-yellow-50 to-orange-50">
               <CardContent className="p-4 text-center">
-                <Percent className="w-8 h-8 mx-auto mb-2 text-orange-500" />
-                <p className="text-2xl font-bold text-orange-600">{totalProbability}%</p>
-                <p className="text-sm text-gray-600">Total Probability</p>
+                <Trophy className="w-8 h-8 mx-auto mb-2 text-orange-500" />
+                <p className="text-2xl font-bold text-orange-600">{isLoading ? '...' : totalPrizesAwarded}</p>
+                <p className="text-sm text-gray-600">Prizes Awarded</p>
               </CardContent>
             </Card>
-            
+
             <Card className="cartoon-card bg-gradient-to-br from-green-50 to-emerald-50">
               <CardContent className="p-4 text-center">
-                <Star className="w-8 h-8 mx-auto mb-2 text-green-500" />
-                <p className="text-2xl font-bold text-green-600">{Math.round(averageShopPrice)}</p>
-                <p className="text-sm text-gray-600">Avg Price (pts)</p>
+                <ShoppingCart className="w-8 h-8 mx-auto mb-2 text-green-500" />
+                <p className="text-2xl font-bold text-green-600">{isLoading ? '...' : totalShopSales}</p>
+                <p className="text-sm text-gray-600">Shop Sales</p>
               </CardContent>
             </Card>
           </div>
@@ -441,54 +642,71 @@ export function AdminPanel({ onBack, user, defaultTab = 'overview' }: AdminPanel
             <Card className="cartoon-card">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Gift className="w-5 h-5 text-purple-500" />
-                  Recent Lucky Draw Prizes
+                  <Activity className="w-5 h-5 text-blue-500" />
+                  Platform Activity (Last 7 Days)
                 </CardTitle>
+                <CardDescription>Lucky Draw spins per day</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-3">
-                  {prizes.slice(0, 3).map((prize) => (
-                    <div key={prize.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                      <div className="flex items-center gap-3">
-                        <span className="text-xl">{prize.emoji}</span>
-                        <div>
-                          <p className="font-medium text-gray-800">{prize.name}</p>
-                          <p className="text-sm text-gray-600">{prize.value}</p>
+                {isLoading ? (
+                  <div className="text-center py-8 text-gray-500">Loading...</div>
+                ) : platformActivity.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500">No activity data yet</div>
+                ) : (
+                  <div className="space-y-3">
+                    {platformActivity.map((day, index) => (
+                      <div key={index} className="space-y-2">
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm font-medium text-gray-700">{day.label}</span>
+                          <span className="text-sm text-gray-600">{day.count} spins</span>
+                        </div>
+                        <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-gradient-to-r from-blue-500 to-purple-500 rounded-full transition-all duration-500"
+                            style={{ width: `${Math.min((day.count / Math.max(...platformActivity.map(d => d.count), 1)) * 100, 100)}%` }}
+                          />
                         </div>
                       </div>
-                      <Badge className={prize.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}>
-                        {prize.isActive ? 'Active' : 'Inactive'}
-                      </Badge>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
 
             <Card className="cartoon-card">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <ShoppingBag className="w-5 h-5 text-pink-500" />
-                  Popular Shop Items
+                  <Clock className="w-5 h-5 text-green-500" />
+                  Recent Activity
                 </CardTitle>
+                <CardDescription>Latest lucky draws and redemptions</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-3">
-                  {shopItems.filter(item => item.isPopular).slice(0, 3).map((item) => (
-                    <div key={item.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                      <div className="flex items-center gap-3">
-                        <span className="text-xl">{item.emoji}</span>
-                        <div>
-                          <p className="font-medium text-gray-800">{item.name}</p>
-                          <p className="text-sm text-gray-600">{item.pointsCost} pts</p>
+                {isLoading ? (
+                  <div className="text-center py-8 text-gray-500">Loading...</div>
+                ) : recentActivity.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500">No activity yet</div>
+                ) : (
+                  <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                    {recentActivity.slice(0, 5).map((activity, index) => (
+                      <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                        <div className="flex items-center gap-3">
+                          <span className="text-xl">{activity.emoji}</span>
+                          <div>
+                            <p className="font-medium text-gray-800 text-sm">{activity.item}</p>
+                            <p className="text-xs text-gray-600">{activity.user}</p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <Badge className={activity.type === 'lucky_draw' ? 'bg-purple-100 text-purple-800 text-xs' : 'bg-green-100 text-green-800 text-xs'}>
+                            {activity.type === 'lucky_draw' ? '🎰 Draw' : '🛒 Redeem'}
+                          </Badge>
+                          <p className="text-xs text-gray-500 mt-1">{activity.value}</p>
                         </div>
                       </div>
-                      <Badge className="bg-orange-100 text-orange-800">
-                        Popular
-                      </Badge>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
@@ -731,62 +949,160 @@ export function AdminPanel({ onBack, user, defaultTab = 'overview' }: AdminPanel
         {/* Analytics Tab */}
         <TabsContent value="analytics" className="space-y-6 mt-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Recent User Activity */}
             <Card className="cartoon-card">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <BarChart3 className="w-5 h-5 text-blue-500" />
-                  Prize Distribution
+                  <Users className="w-5 h-5 text-blue-500" />
+                  Recent User Activity
                 </CardTitle>
+                <CardDescription>Latest user sign-ups</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  {prizes.map((prize) => (
-                    <div key={prize.id} className="space-y-2">
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm font-medium">{prize.name}</span>
-                        <span className="text-sm text-gray-600">{prize.probability}%</span>
+                {isLoading ? (
+                  <div className="text-center py-8 text-gray-500">Loading...</div>
+                ) : userProfiles.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500">No users yet</div>
+                ) : (
+                  <div className="space-y-3">
+                    {userProfiles.slice(0, 5).map((user, index) => (
+                      <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-gradient-to-r from-blue-400 to-purple-500 flex items-center justify-center text-white font-bold">
+                            {user.username?.charAt(0).toUpperCase() || 'U'}
+                          </div>
+                          <div>
+                            <p className="font-medium text-gray-800">{user.username || 'Unknown'}</p>
+                            <p className="text-xs text-gray-600">{user.email || 'No email'}</p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-xs text-gray-500">
+                            {new Date(user.created_at).toLocaleDateString()}
+                          </p>
+                          <Badge className="bg-blue-100 text-blue-800 text-xs mt-1">
+                            {user.points || 0} pts
+                          </Badge>
+                        </div>
                       </div>
-                      <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
-                        <div 
-                          className="h-full bg-gradient-to-r from-blue-500 to-purple-500 rounded-full transition-all duration-500"
-                          style={{ width: `${Math.min(prize.probability, 100)}%` }}
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
 
+            {/* Recent Transaction History */}
             <Card className="cartoon-card">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <TrendingUp className="w-5 h-5 text-green-500" />
-                  Category Breakdown
+                  <Activity className="w-5 h-5 text-green-500" />
+                  Recent Transaction History
                 </CardTitle>
+                <CardDescription>Lucky draws and redemptions</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  {['vouchers', 'cashback', 'experiences', 'digital'].map((category) => {
-                    const categoryItems = shopItems.filter(item => item.category === category);
-                    const categoryPercentage = (categoryItems.length / shopItems.length) * 100;
-                    
-                    return (
-                      <div key={category} className="space-y-2">
+                {isLoading ? (
+                  <div className="text-center py-8 text-gray-500">Loading...</div>
+                ) : recentActivity.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500">No transactions yet</div>
+                ) : (
+                  <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                    {recentActivity.slice(0, 10).map((activity, index) => (
+                      <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
+                        <div className="flex items-center gap-2">
+                          <span className="text-lg">{activity.emoji}</span>
+                          <div>
+                            <p className="font-medium text-gray-800 text-xs">{activity.item}</p>
+                            <p className="text-xs text-gray-500">{activity.user}</p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <Badge className={activity.type === 'lucky_draw' ? 'bg-purple-100 text-purple-800 text-xs' : 'bg-green-100 text-green-800 text-xs'}>
+                            {activity.type === 'lucky_draw' ? 'Draw' : 'Redeem'}
+                          </Badge>
+                          <p className="text-xs text-gray-500">{new Date(activity.createdAt).toLocaleDateString()}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Top Prize Distribution */}
+            <Card className="cartoon-card">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <BarChart3 className="w-5 h-5 text-purple-500" />
+                  Top Prize Distribution
+                </CardTitle>
+                <CardDescription>Most awarded prizes</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {isLoading ? (
+                  <div className="text-center py-8 text-gray-500">Loading...</div>
+                ) : prizeDistribution.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500">No prize data yet</div>
+                ) : (
+                  <div className="space-y-4">
+                    {prizeDistribution.slice(0, 5).map((prize, index) => (
+                      <div key={index} className="space-y-2">
                         <div className="flex justify-between items-center">
-                          <span className="text-sm font-medium capitalize">{category}</span>
-                          <span className="text-sm text-gray-600">{categoryItems.length} items</span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-lg">{prize.emoji}</span>
+                            <span className="text-sm font-medium text-gray-700">{prize.prizeName}</span>
+                          </div>
+                          <div className="text-right">
+                            <span className="text-sm font-bold text-purple-600">{prize.count}</span>
+                            <span className="text-xs text-gray-500 ml-1">({prize.percentage}%)</span>
+                          </div>
                         </div>
                         <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
-                          <div 
-                            className="h-full bg-gradient-to-r from-green-500 to-blue-500 rounded-full transition-all duration-500"
-                            style={{ width: `${categoryPercentage}%` }}
+                          <div
+                            className="h-full bg-gradient-to-r from-purple-500 to-pink-500 rounded-full transition-all duration-500"
+                            style={{ width: `${Math.min(parseFloat(prize.percentage as string), 100)}%` }}
                           />
                         </div>
                       </div>
-                    );
-                  })}
-                </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Top Shop Performance */}
+            <Card className="cartoon-card">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <TrendingUp className="w-5 h-5 text-orange-500" />
+                  Top Shop Performance
+                </CardTitle>
+                <CardDescription>Most redeemed items</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {isLoading ? (
+                  <div className="text-center py-8 text-gray-500">Loading...</div>
+                ) : shopPerformance.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500">No redemption data yet</div>
+                ) : (
+                  <div className="space-y-3">
+                    {shopPerformance.slice(0, 5).map((item, index) => (
+                      <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                        <div className="flex items-center gap-3">
+                          <span className="text-xl">{item.emoji}</span>
+                          <div>
+                            <p className="font-medium text-gray-800">{item.itemName}</p>
+                            <p className="text-xs text-gray-600">{item.count} redemptions</p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-sm font-bold text-orange-600">{item.totalPoints} pts</p>
+                          <p className="text-xs text-gray-500">Total value</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
