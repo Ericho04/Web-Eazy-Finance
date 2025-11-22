@@ -1,7 +1,8 @@
-// @ts-nocheck
+
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-// --- 导入 Lucide-React 图标 ---
+import { SimpleEmojiPicker } from './components/SimpleEmojiPicker';
+
 import {
   LayoutDashboard,
   Gift,
@@ -1108,7 +1109,11 @@ export default function AdminWebApp({ user, onLogout }: AdminWebAppProps) {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="prize-emoji">Emoji</Label>
-                    <Input id="prize-emoji" placeholder="🎁" value={prizeForm.emoji || ''} onChange={(e) => setPrizeForm(prev => ({ ...prev, emoji: e.target.value }))} />
+                    <SimpleEmojiPicker
+                      value={prizeForm.emoji || ''}
+                      onChange={(emoji) => setPrizeForm(prev => ({ ...prev, emoji }))}
+                      placeholder="🎁"
+                    />
                   </div>
                 </div>
                 <div className="space-y-2">

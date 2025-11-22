@@ -5,7 +5,20 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="6749706f-de7e-4228-80f2-76411be4d1e7" name="Changes" comment="">
+      <change afterPath="$PROJECT_DIR$/src/components/SimpleEmojiPicker.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/caches/deviceStreaming.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/caches/deviceStreaming.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/models/budget_dart.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/models/financial_dart.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/AdminWebApp.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/AdminWebApp.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/App.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/App.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/components/Budget.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/components/Financial.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/components/FinancialAccounts.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/components/FinancialDebts.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/components/FinancialGoals.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/components/FinancialTax.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/components/Goals.tsx" beforeDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
