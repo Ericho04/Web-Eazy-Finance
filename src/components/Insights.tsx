@@ -141,28 +141,30 @@ export function Insights({ onNavigate, user }: InsightsProps) {
         .sort((a, b) => b.timesWon - a.timesWon)
         .slice(0, 10);
 
-      // 3. Shop Performance (group by item_id)
+      // 3. Shop Performance (group by item_id with proper aggregation)
       const { data: allRedeems } = await supabase
         .from('redeem')
         .select(`
           item_id,
           points_spent,
-          shop_items (id, name, emoji, points_cost)
+          shop_items!inner (id, name, emoji, points_cost)
         `);
 
       const shopMap: { [key: string]: { name: string; emoji: string; count: number; totalPoints: number } } = {};
       (allRedeems || []).forEach((redeem: any) => {
         const itemId = redeem.item_id;
+        const itemName = redeem.shop_items?.name || 'Unknown Item';
+
         if (!shopMap[itemId]) {
           shopMap[itemId] = {
-            name: redeem.shop_items?.name || 'Unknown Item',
+            name: itemName,
             emoji: redeem.shop_items?.emoji || '🛍️',
             count: 0,
             totalPoints: 0
           };
         }
         shopMap[itemId].count += 1;
-        shopMap[itemId].totalPoints += (redeem.points_spent || redeem.shop_items?.points_cost || 0);
+        shopMap[itemId].totalPoints += (redeem.points_spent || 0);
       });
 
       const shopPerformance = Object.entries(shopMap)
