@@ -113,41 +113,42 @@ export function Insights({ onNavigate, user }: InsightsProps) {
         .sort((a, b) => b.timesWon - a.timesWon)
         .slice(0, 10);
 
-      // 3. Shop Performance (group by item_id with proper aggregation)
-      const { data: allRedeems } = await supabase
-        .from('redeem')
-        .select(`
-          item_id,
-          points_spent,
-          shop_items (id, name, emoji, points_cost, category)
-        `);
+      // 3. Shop Performance (using VIEW redeem_with_items)
+      const { data: allRedeems, error: viewError } = await supabase
+        .from('redeem_with_items')
+        .select('*');
 
-      const shopMap: { [key: string]: { name: string; emoji: string; category: string; count: number } } = {};
-      (allRedeems || []).forEach((redeem: any) => {
-        const itemId = redeem.item_id;
-        const itemName = redeem.shop_items?.name || 'Unknown Item';
+      if (viewError) {
+        console.error("Redeem VIEW ERROR:", viewError);
+      }
 
-        if (!shopMap[itemId]) {
-          shopMap[itemId] = {
-            name: itemName,
-            emoji: redeem.shop_items?.emoji || '🛍️',
-            category: redeem.shop_items?.category || 'Uncategorized',
-            count: 0
+      const shopMap: any = {};
+
+      (allRedeems || []).forEach((r: any) => {
+        const id = r.item_id;
+
+        if (!shopMap[id]) {
+          shopMap[id] = {
+            name: r.item_name,
+            emoji: r.item_emoji || "🛍️",
+            category: r.item_category || "Uncategorized",
+            redeemCount: 0
           };
         }
-        shopMap[itemId].count += 1;
+
+        shopMap[id].redeemCount += 1;
       });
 
       const shopPerformance = Object.entries(shopMap)
-        .map(([id, data]) => ({
+        .map(([id, data]: [string, any]) => ({
           id,
           name: data.name,
           emoji: data.emoji,
           category: data.category,
-          redeemCount: data.count
+          redeemCount: data.redeemCount,
         }))
         .sort((a, b) => b.redeemCount - a.redeemCount)
-        .slice(0, 3);
+        .slice(0, 5);
 
       setAnalyticsData({
         transactionHistory,
