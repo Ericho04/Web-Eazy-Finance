@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { SimpleEmojiPicker } from './components/SimpleEmojiPicker';
+import PlatformActivityChart from './components/PlatformActivityChart';
 
 import {
   LayoutDashboard,
@@ -702,15 +703,15 @@ export default function AdminWebApp({ user, onLogout }: AdminWebAppProps) {
           </div>
         </motion.div>
 
-        {/* Chart/Activity Placeholders */}
+        {/* Platform Activity Chart */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}>
           <Card>
             <CardHeader>
               <CardTitle>Platform Activity</CardTitle>
-              <CardDescription>A chart showing user signups and transactions over time.</CardDescription>
+              <CardDescription>Lucky draws & redemptions over the last 7 days</CardDescription>
             </CardHeader>
-            <CardContent className="h-80 flex items-center justify-center">
-              <p className="text-muted-foreground">(Line/Bar Chart Placeholder)</p>
+            <CardContent className="h-80">
+              <PlatformActivityChart data={dashboardStats.platformActivity} />
             </CardContent>
           </Card>
         </motion.div>
