@@ -114,41 +114,46 @@ export function Insights({ onNavigate, user }: InsightsProps) {
         .slice(0, 10);
 
       // 3. Shop Performance (using VIEW redeem_with_items)
-      const { data: allRedeems, error: viewError } = await supabase
-        .from('redeem_with_items')
-        .select('*');
+const { data: allRedeems, error: viewError } = await supabase
+  .from('redeem_with_items')
+  .select(`
+    item_id,
+    item_name,
+    item_emoji,
+    item_category
+  `);
 
-      if (viewError) {
-        console.error("Redeem VIEW ERROR:", viewError);
-      }
+if (viewError) {
+  console.error("Redeem VIEW ERROR:", viewError);
+}
 
-      const shopMap: any = {};
+const shopMap: any = {};
 
-      (allRedeems || []).forEach((r: any) => {
-        const id = r.item_id;
+(allRedeems || []).forEach((r: any) => {
+  const id = r.item_id;
 
-        if (!shopMap[id]) {
-          shopMap[id] = {
-            name: r.item_name,
-            emoji: r.item_emoji || "🛍️",
-            category: r.item_category || "Uncategorized",
-            redeemCount: 0
-          };
-        }
+  if (!shopMap[id]) {
+    shopMap[id] = {
+      name: r.item_name,
+      emoji: r.item_emoji || "🛍️",
+      category: r.item_category || "Uncategorized",
+      redeemCount: 0,
+    };
+  }
 
-        shopMap[id].redeemCount += 1;
-      });
+  shopMap[id].redeemCount += 1;
+});
 
-      const shopPerformance = Object.entries(shopMap)
-        .map(([id, data]: [string, any]) => ({
-          id,
-          name: data.name,
-          emoji: data.emoji,
-          category: data.category,
-          redeemCount: data.redeemCount,
-        }))
-        .sort((a, b) => b.redeemCount - a.redeemCount)
-        .slice(0, 5);
+const shopPerformance = Object.entries(shopMap)
+  .map(([id, data]: [string, any]) => ({
+    id,
+    name: data.name,
+    emoji: data.emoji,
+    category: data.category,
+    redeemCount: data.redeemCount,
+  }))
+  .sort((a, b) => b.redeemCount - a.redeemCount)
+  .slice(0, 5);
 
       setAnalyticsData({
         transactionHistory,
