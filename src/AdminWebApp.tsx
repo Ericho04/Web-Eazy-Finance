@@ -375,7 +375,7 @@ export default function AdminWebApp({ user, onLogout }: AdminWebAppProps) {
           item_name,
           item_id,
           points_spent,
-          shop_items (name, emoji, points_cost)
+          shop_items (name, emoji, pointsCost)
         `);
 
       const itemCounts: { [key: string]: { count: number; totalPoints: number; emoji: string } } = {};
@@ -389,7 +389,7 @@ export default function AdminWebApp({ user, onLogout }: AdminWebAppProps) {
           };
         }
         itemCounts[itemName].count += 1;
-        itemCounts[itemName].totalPoints += (redeem.points_spent || redeem.shop_items?.points_cost || 0);
+        itemCounts[itemName].totalPoints += (redeem.points_spent || redeem.shop_items?.pointsCost || 0);
       });
 
       const shopPerformance = Object.entries(itemCounts)

@@ -39,7 +39,7 @@ export function Insights({ onNavigate, user }: InsightsProps) {
           draw_id,
           reward_id,
           created_at,
-          user_profiles (username),
+          user_profiles (full_name),
           prizes (id, name, emoji, value)
         `)
         .order('created_at', { ascending: false })
@@ -51,8 +51,8 @@ export function Insights({ onNavigate, user }: InsightsProps) {
           redeem_id,
           points_spent,
           created_at,
-          user_profiles (username),
-          shop_items (id, name, emoji, points_cost)
+          user_profiles (full_name),
+          shop_items (id, name, emoji, pointsCost)
         `)
         .order('created_at', { ascending: false })
         .limit(20);
@@ -61,7 +61,7 @@ export function Insights({ onNavigate, user }: InsightsProps) {
       const drawTransactions = (luckyDraws || []).map((d: any) => ({
         id: d.draw_id,
         type: 'lucky_draw',
-        user: d.user_profiles?.username || 'Unknown User',
+        user: d.user_profiles?.full_name || 'Unknown User',
         item: d.prizes?.name || 'Unknown Prize',
         emoji: d.prizes?.emoji || '🎁',
         value: d.prizes?.value || '',
@@ -71,7 +71,7 @@ export function Insights({ onNavigate, user }: InsightsProps) {
       const redeemTransactions = (redeems || []).map((r: any) => ({
         id: r.redeem_id,
         type: 'redeem',
-        user: r.user_profiles?.username || 'Unknown User',
+        user: r.user_profiles?.full_name || 'Unknown User',
         item: r.shop_items?.name || 'Unknown Item',
         emoji: r.shop_items?.emoji || '🛍️',
         value: `${r.points_spent || 0} pts`,
