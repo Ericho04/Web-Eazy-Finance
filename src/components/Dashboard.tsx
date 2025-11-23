@@ -30,6 +30,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { useApp } from '../utils/AppContext';
 import * as SupabaseModule from '../supabase/supabase.ts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 const supabase = SupabaseModule.supabase;
 
 interface DashboardProps {
@@ -46,7 +47,8 @@ export function Dashboard({ onNavigate }: DashboardProps) {
     totalCost: 0,
     totalPrizesAwarded: 0,
     totalShopSales: 0,
-    prizeDistribution: [] as any[]
+    prizeDistribution: [] as any[],
+    dailyActivity: [] as { date: string; count: number }[]
   });
 
   const activeGoals = getActiveGoals();
@@ -128,12 +130,50 @@ export function Dashboard({ onNavigate }: DashboardProps) {
         .sort((a, b) => b.count - a.count)
         .slice(0, 5);
 
+      // 5. Fetch lucky_draw records with dates for daily activity
+      const { data: luckyDrawRecords } = await supabase
+        .from('lucky_draw')
+        .select('created_at')
+        .order('created_at', { ascending: false });
+
+      // 6. Fetch redeem records with dates for daily activity
+      const { data: redeemRecords } = await supabase
+        .from('redeem')
+        .select('created_at')
+        .order('created_at', { ascending: false });
+
+      // Merge lucky_draw + redeem into daily statistics
+      const activityMap: { [key: string]: number } = {};
+
+      // Process lucky_draw records
+      (luckyDrawRecords || []).forEach((record: any) => {
+        if (record.created_at) {
+          const date = new Date(record.created_at).toISOString().split('T')[0];
+          activityMap[date] = (activityMap[date] || 0) + 1;
+        }
+      });
+
+      // Process redeem records
+      (redeemRecords || []).forEach((record: any) => {
+        if (record.created_at) {
+          const date = new Date(record.created_at).toISOString().split('T')[0];
+          activityMap[date] = (activityMap[date] || 0) + 1;
+        }
+      });
+
+      // Convert to array and sort by date
+      const dailyActivity = Object.entries(activityMap)
+        .map(([date, count]) => ({ date, count }))
+        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+        .slice(-30); // Last 30 days
+
       setDashboardStats({
         totalUsers: userCount || 0,
         totalCost: 0, // Placeholder
         totalPrizesAwarded: prizesCount || 0,
         totalShopSales: redeemCount || 0,
-        prizeDistribution
+        prizeDistribution,
+        dailyActivity
       });
 
     } catch (error) {
@@ -158,10 +198,63 @@ export function Dashboard({ onNavigate }: DashboardProps) {
       const today = new Date();
       const daysUntilDeadline = Math.ceil((deadline.getTime() - today.getTime()) / (1000 * 3600 * 24));
       const progress = (goal.currentAmount / goal.targetAmount) * 100;
-      
+
       return daysUntilDeadline <= 30 || progress < 50; // Show goals due within 30 days or less than 50% complete
     })
     .slice(0, 3); // Show max 3 daily goals
+
+  // Activity Chart Widget
+  const ActivityChart = ({ data }: { data: { date: string; count: number }[] }) => {
+    if (data.length === 0) {
+      return (
+        <div className="text-center text-gray-500 text-sm py-8">
+          No activity data available
+        </div>
+      );
+    }
+
+    // Format data for chart
+    const chartData = data.map(item => ({
+      date: new Date(item.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      count: item.count,
+      fullDate: item.date
+    }));
+
+    const maxCount = Math.max(...chartData.map(d => d.count));
+    const colors = ['#a855f7', '#ec4899', '#f59e0b', '#10b981', '#3b82f6'];
+
+    return (
+      <ResponsiveContainer width="100%" height={250}>
+        <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+          <XAxis
+            dataKey="date"
+            tick={{ fill: '#6b7280', fontSize: 12 }}
+            tickLine={{ stroke: '#e5e7eb' }}
+          />
+          <YAxis
+            tick={{ fill: '#6b7280', fontSize: 12 }}
+            tickLine={{ stroke: '#e5e7eb' }}
+          />
+          <Tooltip
+            contentStyle={{
+              backgroundColor: 'white',
+              border: '1px solid #e5e7eb',
+              borderRadius: '8px',
+              padding: '8px 12px'
+            }}
+            labelStyle={{ color: '#374151', fontWeight: 'bold' }}
+            formatter={(value: number) => [`${value} activities`, 'Count']}
+          />
+          <Bar dataKey="count" radius={[8, 8, 0, 0]}>
+            {chartData.map((entry, index) => (
+              <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />
+            ))}
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
+    );
+  };
 
   return (
     <div className="min-h-screen pb-32">
@@ -603,6 +696,40 @@ export function Dashboard({ onNavigate }: DashboardProps) {
             </div>
           </motion.div>
         )}
+
+        {/* Platform Activity Chart */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.35 }}
+          className="space-y-4"
+        >
+          <div className="flex items-center gap-3">
+            <motion.div
+              animate={{ scale: [1, 1.1, 1] }}
+              transition={{ duration: 2, repeat: Infinity, repeatDelay: 3 }}
+              className="text-2xl"
+            >
+              📈
+            </motion.div>
+            <div>
+              <h2 className="text-xl font-bold text-gray-800">Platform Activity</h2>
+              <p className="text-sm text-gray-600">Lucky draws & redemptions (last 30 days)</p>
+            </div>
+          </div>
+
+          <Card className="cartoon-card bg-white/80 backdrop-blur-sm border-0">
+            <CardContent className="p-6">
+              {isLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="w-6 h-6 animate-spin text-purple-500" />
+                </div>
+              ) : (
+                <ActivityChart data={dashboardStats.dailyActivity} />
+              )}
+            </CardContent>
+          </Card>
+        </motion.div>
 
         {/* Recent Transactions */}
         <motion.div
