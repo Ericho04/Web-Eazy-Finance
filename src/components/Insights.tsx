@@ -119,7 +119,7 @@ export function Insights({ onNavigate, user }: InsightsProps) {
         .select(`
           item_id,
           points_spent,
-          shop_items!inner (id, name, emoji, points_cost, category)
+          shop_items (id, name, emoji, points_cost, category)
         `);
 
       const shopMap: { [key: string]: { name: string; emoji: string; category: string; count: number } } = {};
