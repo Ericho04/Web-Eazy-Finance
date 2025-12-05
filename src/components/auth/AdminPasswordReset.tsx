@@ -29,36 +29,36 @@ export function AdminPasswordReset({ onNavigate }: AdminPasswordResetProps) {
     setSuccess(false);
 
     try {
-      // 验证密码
+      // Validate password
       if (newPassword !== confirmPassword) {
-        toast.error('两次输入的密码不一致');
+        toast.error('Passwords do not match');
         setLoading(false);
         return;
       }
 
       if (newPassword.length < 6) {
-        toast.error('密码长度至少为 6 位');
+        toast.error('Password must be at least 6 characters');
         setLoading(false);
         return;
       }
 
-      // 验证 Service Role Key
+      // Validate Service Role Key
       if (!serviceRoleKey.trim()) {
-        toast.error('请输入 Service Role Key');
+        toast.error('Please enter Service Role Key');
         setLoading(false);
         return;
       }
 
-      // 获取 Supabase URL
+      // Get Supabase URL
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 
       if (!supabaseUrl) {
-        toast.error('未配置 Supabase URL');
+        toast.error('Supabase URL not configured');
         setLoading(false);
         return;
       }
 
-      // 创建管理员客户端
+      // Create admin client
       const adminClient = createClient(supabaseUrl, serviceRoleKey.trim(), {
         auth: {
           autoRefreshToken: false,
@@ -68,19 +68,19 @@ export function AdminPasswordReset({ onNavigate }: AdminPasswordResetProps) {
 
       let targetUserId = userId.trim();
 
-      // 如果使用邮箱搜索，先查找用户 ID
+      // If using email search, find user ID first
       if (searchMethod === 'email') {
         if (!userEmail.trim()) {
-          toast.error('请输入用户邮箱');
+          toast.error('Please enter user email');
           setLoading(false);
           return;
         }
 
-        // 通过邮箱查找用户
+        // Find user by email
         const { data: users, error: listError } = await adminClient.auth.admin.listUsers();
 
         if (listError) {
-          toast.error(`查找用户失败: ${listError.message}`);
+          toast.error(`Failed to find user: ${listError.message}`);
           setLoading(false);
           return;
         }
@@ -88,37 +88,37 @@ export function AdminPasswordReset({ onNavigate }: AdminPasswordResetProps) {
         const user = users.users.find(u => u.email === userEmail.trim());
 
         if (!user) {
-          toast.error('未找到该邮箱对应的用户');
+          toast.error('No user found with this email');
           setLoading(false);
           return;
         }
 
         targetUserId = user.id;
-        toast.info(`找到用户: ${user.email} (ID: ${user.id.substring(0, 8)}...)`);
+        toast.info(`Found user: ${user.email} (ID: ${user.id.substring(0, 8)}...)`);
       }
 
       if (!targetUserId) {
-        toast.error('请输入用户 ID');
+        toast.error('Please enter user ID');
         setLoading(false);
         return;
       }
 
-      // 使用 Admin API 更新密码
+      // Update password using Admin API
       const { data, error } = await adminClient.auth.admin.updateUserById(
         targetUserId,
         { password: newPassword }
       );
 
       if (error) {
-        toast.error(`密码重置失败: ${error.message}`);
+        toast.error(`Password reset failed: ${error.message}`);
         console.error('Reset error:', error);
       } else {
         setSuccess(true);
-        toast.success('密码重置成功！', {
+        toast.success('Password reset successful!', {
           duration: 5000,
         });
 
-        // 清空表单
+        // Clear form
         setUserId('');
         setUserEmail('');
         setNewPassword('');
@@ -127,7 +127,7 @@ export function AdminPasswordReset({ onNavigate }: AdminPasswordResetProps) {
 
     } catch (err) {
       const e = err as Error;
-      toast.error(`发生错误: ${e.message}`);
+      toast.error(`An error occurred: ${e.message}`);
       console.error('Reset error:', err);
     } finally {
       setLoading(false);
@@ -152,10 +152,10 @@ export function AdminPasswordReset({ onNavigate }: AdminPasswordResetProps) {
             <KeyRound className="w-16 h-16 text-amber-500 mx-auto" />
           </motion.div>
           <CardTitle className="text-3xl font-bold tracking-tight text-gray-900">
-            管理员密码重置
+            Admin Password Reset
           </CardTitle>
           <CardDescription className="text-gray-600">
-            使用 Supabase Admin API 重置用户密码
+            Reset user password using Supabase Admin API
           </CardDescription>
         </CardHeader>
 
@@ -168,51 +168,51 @@ export function AdminPasswordReset({ onNavigate }: AdminPasswordResetProps) {
             >
               <div className="text-center">
                 <CheckCircle2 className="w-20 h-20 text-green-500 mx-auto mb-4" />
-                <h3 className="text-2xl font-bold text-gray-900 mb-2">密码重置成功！</h3>
+                <h3 className="text-2xl font-bold text-gray-900 mb-2">Password Reset Successful!</h3>
               </div>
 
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-3">
                 <div className="flex gap-3">
                   <AlertCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
                   <div className="text-sm text-blue-800">
-                    <p className="font-semibold mb-2">下一步：设置管理员资料</p>
-                    <p className="mb-3">如果这是您第一次登录，或者登录时遇到 "Failed to fetch admin profile" 错误，您需要先设置管理员资料。</p>
+                    <p className="font-semibold mb-2">Next Step: Setup Admin Profile</p>
+                    <p className="mb-3">If this is your first login, or you encounter a "Failed to fetch admin profile" error when logging in, you need to setup your admin profile first.</p>
                   </div>
                 </div>
                 <Button
                   onClick={() => onNavigate('admin-profile-setup')}
                   className="w-full bg-blue-600 hover:bg-blue-700 text-white"
                 >
-                  前往设置管理员资料
+                  Go to Admin Profile Setup
                 </Button>
               </div>
 
               <div className="text-center pt-4">
-                <p className="text-sm text-gray-600 mb-3">或者直接尝试登录</p>
+                <p className="text-sm text-gray-600 mb-3">Or try logging in directly</p>
                 <Button
                   onClick={() => onNavigate('login')}
                   variant="outline"
                   className="w-full"
                 >
                   <ArrowLeft className="mr-2 w-4 h-4" />
-                  返回登录页面
+                  Return to Login Page
                 </Button>
               </div>
             </motion.div>
           ) : (
             <form onSubmit={handleResetPassword} className="space-y-4">
-              {/* 警告提示 */}
+              {/* Security Warning */}
               <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 flex gap-3">
                 <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
                 <div className="text-sm text-amber-800">
-                  <p className="font-semibold mb-1">安全提示</p>
-                  <p>此功能需要 Service Role Key，请确保您有权访问。请勿与他人分享此密钥。</p>
+                  <p className="font-semibold mb-1">Security Notice</p>
+                  <p>This feature requires a Service Role Key. Please ensure you have authorized access. Do not share this key with others.</p>
                 </div>
               </div>
 
-              {/* 搜索方式选择 */}
+              {/* Search Method Selection */}
               <div className="space-y-2">
-                <Label className="text-sm font-medium text-gray-700">查找用户方式</Label>
+                <Label className="text-sm font-medium text-gray-700">Find User By</Label>
                 <div className="flex gap-2">
                   <Button
                     type="button"
@@ -222,7 +222,7 @@ export function AdminPasswordReset({ onNavigate }: AdminPasswordResetProps) {
                     disabled={loading}
                   >
                     <Mail className="w-4 h-4 mr-2" />
-                    邮箱
+                    Email
                   </Button>
                   <Button
                     type="button"
@@ -232,16 +232,16 @@ export function AdminPasswordReset({ onNavigate }: AdminPasswordResetProps) {
                     disabled={loading}
                   >
                     <User className="w-4 h-4 mr-2" />
-                    用户 ID
+                    User ID
                   </Button>
                 </div>
               </div>
 
-              {/* 用户标识输入 */}
+              {/* User Identifier Input */}
               {searchMethod === 'email' ? (
                 <div className="space-y-2">
                   <Label htmlFor="user-email" className="text-sm font-medium text-gray-700">
-                    用户邮箱
+                    User Email
                   </Label>
                   <div className="relative">
                     <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -260,7 +260,7 @@ export function AdminPasswordReset({ onNavigate }: AdminPasswordResetProps) {
               ) : (
                 <div className="space-y-2">
                   <Label htmlFor="user-id" className="text-sm font-medium text-gray-700">
-                    用户 ID
+                    User ID
                   </Label>
                   <div className="relative">
                     <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -275,7 +275,7 @@ export function AdminPasswordReset({ onNavigate }: AdminPasswordResetProps) {
                       disabled={loading}
                     />
                   </div>
-                  <p className="text-xs text-gray-500">UUID 格式的用户 ID</p>
+                  <p className="text-xs text-gray-500">UUID format user ID</p>
                 </div>
               )}
 
@@ -298,19 +298,19 @@ export function AdminPasswordReset({ onNavigate }: AdminPasswordResetProps) {
                   />
                 </div>
                 <p className="text-xs text-gray-500">
-                  从 Supabase Dashboard → Settings → API 获取
+                  Get from Supabase Dashboard → Settings → API
                 </p>
               </div>
 
-              {/* 新密码 */}
+              {/* New Password */}
               <div className="space-y-2">
                 <Label htmlFor="new-password" className="text-sm font-medium text-gray-700">
-                  新密码
+                  New Password
                 </Label>
                 <Input
                   id="new-password"
                   type="password"
-                  placeholder="至少 6 位字符"
+                  placeholder="At least 6 characters"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                   required
@@ -319,15 +319,15 @@ export function AdminPasswordReset({ onNavigate }: AdminPasswordResetProps) {
                 />
               </div>
 
-              {/* 确认密码 */}
+              {/* Confirm Password */}
               <div className="space-y-2">
                 <Label htmlFor="confirm-password" className="text-sm font-medium text-gray-700">
-                  确认新密码
+                  Confirm New Password
                 </Label>
                 <Input
                   id="confirm-password"
                   type="password"
-                  placeholder="再次输入新密码"
+                  placeholder="Enter new password again"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   required
@@ -336,7 +336,7 @@ export function AdminPasswordReset({ onNavigate }: AdminPasswordResetProps) {
                 />
               </div>
 
-              {/* 提交按钮 */}
+              {/* Submit Button */}
               <Button
                 type="submit"
                 className="w-full cartoon-button bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white"
@@ -345,12 +345,12 @@ export function AdminPasswordReset({ onNavigate }: AdminPasswordResetProps) {
                 {loading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    重置中...
+                    Resetting...
                   </>
                 ) : (
                   <>
                     <KeyRound className="mr-2 w-4 h-4" />
-                    重置密码
+                    Reset Password
                   </>
                 )}
               </Button>
@@ -366,7 +366,7 @@ export function AdminPasswordReset({ onNavigate }: AdminPasswordResetProps) {
             disabled={loading}
           >
             <ArrowLeft className="mr-2 w-4 h-4" />
-            返回登录
+            Return to Login
           </Button>
         </CardFooter>
       </Card>

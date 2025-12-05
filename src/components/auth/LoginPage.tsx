@@ -1,35 +1,27 @@
-// @ts-nocheck
-import { useState, FormEvent } from 'react'; // <--- 增加了 FormEvent
+import { useState, FormEvent } from 'react';
 import { motion } from 'motion/react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '../ui/card';
 import { Eye, EyeOff, Mail, Lock, Loader2, Shield } from 'lucide-react';
-import { toast } from 'sonner'; // <--- 增加了 toast
-import { supabase } from '../../supabase/supabase'; // <--- 增加了 supabase
+import { toast } from 'sonner';
+import { supabase } from '../../supabase/supabase';
 
 interface LoginPageProps {
   onNavigate: (destination: string) => void;
-  // --- ENGLISH COMMENT ---
-  // REMOVED: onAdminLogin and onWebAdminAccess are no longer needed
-  // as App.tsx now listens to the real auth state.
 }
 
 export function LoginPage({ onNavigate }: LoginPageProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(false); // <--- 增加了 loading 状态
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  // --- ENGLISH COMMENT as requested ---
-  // This function is now connected to Supabase.
-  // It calls supabase.auth.signInWithPassword.
-  // On success, App.tsx's listener will automatically
-  // take over. We don't need to call onAdminLogin.
-  const handleAdminSubmit = async (e: FormEvent) => { // <--- 增加了 FormEvent
-    e.preventDefault(); // Prevent page reload
+
+  const handleAdminSubmit = async (e: FormEvent) => {
+    e.preventDefault();
     setLoading(true);
     setError('');
 
@@ -45,29 +37,21 @@ export function LoginPage({ onNavigate }: LoginPageProps) {
         setError(error.message);
       }
 
-      // If login is successful (data.session exists),
-      // we DON'T need to do anything here.
-      // The onAuthStateChange listener in App.tsx will handle it.
 
     } catch (err) {
       const e = err as Error;
       toast.error(`An unexpected error occurred: ${e.message}`);
       setError(e.message);
     } finally {
-      setLoading(false); // Stop loading spinner
+      setLoading(false);
     }
   };
 
-  // REMOVED: handleDemoLogin (不再需要)
-
-  // ... (togglePasswordVisibility 保持不变)
   const togglePasswordVisibility = () => {
     setShowPassword((prev) => !prev);
   };
 
-  // --- ENGLISH COMMENT ---
-  // The JSX below is YOUR original, styled component.
-  // We have only updated the <form> onSubmit and the <Button> loading state.
+
 
   return (
     <motion.div
@@ -110,7 +94,7 @@ export function LoginPage({ onNavigate }: LoginPageProps) {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
-                    disabled={loading} // <--- 增加了 disabled
+                    disabled={loading}
                   />
                 </div>
               </div>
@@ -124,7 +108,7 @@ export function LoginPage({ onNavigate }: LoginPageProps) {
                     className="text-xs text-amber-600 hover:text-amber-700 hover:underline"
                     disabled={loading}
                   >
-                    忘记密码？
+                    Forgot Password?
                   </button>
                 </div>
                 <div className="relative">
@@ -160,9 +144,9 @@ export function LoginPage({ onNavigate }: LoginPageProps) {
               <Button
                 type="submit"
                 className="w-full cartoon-button bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white"
-                disabled={loading || !email.trim() || !password.trim()} // <--- 更新了 disabled 逻辑
+                disabled={loading || !email.trim() || !password.trim()}
               >
-                {loading ? ( // <--- 增加了 loading 状态显示
+                {loading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     Signing In...

@@ -21,7 +21,7 @@ export function AdminProfileSetup({ onNavigate }: AdminProfileSetupProps) {
   const [profileExists, setProfileExists] = useState(false);
   const [success, setSuccess] = useState(false);
 
-  // 检查用户和 profile
+  // Check user and profile
   const handleCheckUser = async (e: FormEvent) => {
     e.preventDefault();
     setChecking(true);
@@ -30,7 +30,7 @@ export function AdminProfileSetup({ onNavigate }: AdminProfileSetupProps) {
 
     try {
       if (!serviceRoleKey.trim()) {
-        toast.error('请输入 Service Role Key');
+        toast.error('Please Enter Service Role Key');
         setChecking(false);
         return;
       }
@@ -38,12 +38,12 @@ export function AdminProfileSetup({ onNavigate }: AdminProfileSetupProps) {
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 
       if (!supabaseUrl) {
-        toast.error('未配置 Supabase URL');
+        toast.error('Supabase URL not configured');
         setChecking(false);
         return;
       }
 
-      // 创建管理员客户端
+      // Create admin client
       const adminClient = createClient(supabaseUrl, serviceRoleKey.trim(), {
         auth: {
           autoRefreshToken: false,
@@ -51,27 +51,26 @@ export function AdminProfileSetup({ onNavigate }: AdminProfileSetupProps) {
         }
       });
 
-      // 获取所有用户
+      // Get all users
       const { data: users, error: listError } = await adminClient.auth.admin.listUsers();
 
       if (listError) {
-        toast.error(`获取用户列表失败: ${listError.message}`);
+        toast.error(`Failed to fetch user details: ${listError.message}`);
         setChecking(false);
         return;
       }
 
       if (!users.users || users.users.length === 0) {
-        toast.error('未找到任何用户');
+        toast.error('No users found');
         setChecking(false);
         return;
       }
 
-      toast.success(`找到 ${users.users.length} 个用户`);
+      toast.success(`Found ${users.users.length} user(s)`);
 
-      // 显示所有用户信息
-      console.log('所有用户:', users.users);
+      console.log('All users:', users.users);
 
-      // 检查每个用户的 admin_users 记录
+      // Check each user's profile
       for (const user of users.users) {
         const { data: profile, error: profileError } = await adminClient
           .from('admin_users')
@@ -79,7 +78,7 @@ export function AdminProfileSetup({ onNavigate }: AdminProfileSetupProps) {
           .eq('id', user.id)
           .single();
 
-        console.log(`用户 ${user.email} (${user.id}):`, {
+        console.log(`User ${user.email} (${user.id}):`, {
           profile,
           profileError
         });
@@ -89,14 +88,14 @@ export function AdminProfileSetup({ onNavigate }: AdminProfileSetupProps) {
 
     } catch (err) {
       const e = err as Error;
-      toast.error(`发生错误: ${e.message}`);
+      toast.error(`An error occurred: ${e.message}`);
       console.error('Check error:', err);
     } finally {
       setChecking(false);
     }
   };
 
-  // 创建 admin profile
+  // Create admin profile
   const handleCreateProfile = async (userId: string, userEmail: string) => {
     setLoading(true);
 
@@ -109,15 +108,15 @@ export function AdminProfileSetup({ onNavigate }: AdminProfileSetupProps) {
         }
       });
 
-      // 检查 admin_users 表是否存在
+      // Check if admin_users table exists
       const { error: tableError } = await adminClient
         .from('admin_users')
         .select('id')
         .limit(1);
 
       if (tableError && tableError.message.includes('relation "public.admin_users" does not exist')) {
-        toast.error('admin_users 表不存在！请先创建表。');
-        console.log('需要创建表的 SQL:');
+        toast.error('admin_users table does not exist! Please create the table first.');
+        console.log('TABLE SQL:');
         console.log(`
 CREATE TABLE public.admin_users (
   id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -129,10 +128,8 @@ CREATE TABLE public.admin_users (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- 启用 RLS
 ALTER TABLE public.admin_users ENABLE ROW LEVEL SECURITY;
 
--- 创建策略允许认证用户读取
 CREATE POLICY "Allow authenticated users to read admin_users"
   ON public.admin_users
   FOR SELECT
@@ -143,13 +140,13 @@ CREATE POLICY "Allow authenticated users to read admin_users"
         return;
       }
 
-      // 尝试插入或更新记录
+      // Try to insert or update record
       const { data, error } = await adminClient
         .from('admin_users')
         .upsert({
           id: userId,
           email: userEmail,
-          name: userEmail.split('@')[0], // 使用邮箱前缀作为名字
+          name: userEmail.split('@')[0],
           role: 'admin',
           avatar: null
         }, {
@@ -159,14 +156,14 @@ CREATE POLICY "Allow authenticated users to read admin_users"
         .single();
 
       if (error) {
-        toast.error(`创建 profile 失败: ${error.message}`);
+        toast.error(`Failed to create profile: ${error.message}`);
         console.error('Insert error:', error);
       } else {
-        toast.success(`成功创建 ${userEmail} 的管理员资料！`);
+        toast.success(`Successfully created admin profile for ${userEmail}!`);
         console.log('Created profile:', data);
         setSuccess(true);
 
-        // 重新检查
+        // Recheck after creation
         setTimeout(() => {
           handleCheckUser(new Event('submit') as any);
         }, 1000);
@@ -174,7 +171,7 @@ CREATE POLICY "Allow authenticated users to read admin_users"
 
     } catch (err) {
       const e = err as Error;
-      toast.error(`发生错误: ${e.message}`);
+      toast.error(`An error occurred: ${e.message}`);
       console.error('Create error:', err);
     } finally {
       setLoading(false);
@@ -199,20 +196,20 @@ CREATE POLICY "Allow authenticated users to read admin_users"
             <UserCog className="w-16 h-16 text-amber-500 mx-auto" />
           </motion.div>
           <CardTitle className="text-3xl font-bold tracking-tight text-gray-900">
-            管理员资料设置工具
+            Admin Profile Setup Tool
           </CardTitle>
           <CardDescription className="text-gray-600">
-            检查和创建 admin_users 表记录
+            Check and create admin_users table records
           </CardDescription>
         </CardHeader>
 
         <CardContent className="p-8">
-          {/* 警告提示 */}
+          {/* Information Notice */}
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 flex gap-3">
             <AlertCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
             <div className="text-sm text-blue-800">
-              <p className="font-semibold mb-1">工具说明</p>
-              <p>此工具用于检查您的用户账户并在 admin_users 表中创建管理员资料记录。</p>
+              <p className="font-semibold mb-1">Tool Description</p>
+              <p>This tool is used to check your user accounts and create admin profile records in the admin_users table.</p>
             </div>
           </div>
 
@@ -245,21 +242,21 @@ CREATE POLICY "Allow authenticated users to read admin_users"
               {checking ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  检查中...
+                  Checking...
                 </>
               ) : (
                 <>
                   <UserCog className="mr-2 w-4 h-4" />
-                  检查用户和资料
+                  Check Users and Profiles
                 </>
               )}
             </Button>
           </form>
 
-          {/* 用户列表 */}
+          {/* User List */}
           {userInfo && userInfo.length > 0 && (
             <div className="space-y-4">
-              <h3 className="font-semibold text-gray-900">找到的用户：</h3>
+              <h3 className="font-semibold text-gray-900">Found Users:</h3>
               {userInfo.map((user: any) => (
                 <div key={user.id} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
                   <div className="space-y-2">
@@ -268,11 +265,11 @@ CREATE POLICY "Allow authenticated users to read admin_users"
                         <p className="font-medium text-gray-900">{user.email}</p>
                         <p className="text-xs text-gray-500 font-mono mt-1">ID: {user.id}</p>
                         <p className="text-xs text-gray-500">
-                          创建时间: {new Date(user.created_at).toLocaleString('zh-CN')}
+                          Created: {new Date(user.created_at).toLocaleString('en-US')}
                         </p>
                         {user.last_sign_in_at && (
                           <p className="text-xs text-gray-500">
-                            上次登录: {new Date(user.last_sign_in_at).toLocaleString('zh-CN')}
+                            Last sign in: {new Date(user.last_sign_in_at).toLocaleString('en-US')}
                           </p>
                         )}
                       </div>
@@ -287,12 +284,12 @@ CREATE POLICY "Allow authenticated users to read admin_users"
                       {loading ? (
                         <>
                           <Loader2 className="mr-2 h-3 w-3 animate-spin" />
-                          创建中...
+                          Creating...
                         </>
                       ) : (
                         <>
                           <CheckCircle2 className="mr-2 w-3 h-3" />
-                          为此用户创建管理员资料
+                          Create Admin Profile for This User
                         </>
                       )}
                     </Button>
@@ -310,8 +307,8 @@ CREATE POLICY "Allow authenticated users to read admin_users"
             >
               <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
               <div className="text-sm text-green-800">
-                <p className="font-semibold mb-1">创建成功！</p>
-                <p>现在您可以返回登录页面尝试登录了。</p>
+                <p className="font-semibold mb-1">Profile Created Successfully!</p>
+                <p>You can now return to the login page and try logging in.</p>
               </div>
             </motion.div>
           )}
@@ -324,7 +321,7 @@ CREATE POLICY "Allow authenticated users to read admin_users"
               disabled={checking || loading}
             >
               <ArrowLeft className="mr-2 w-4 h-4" />
-              返回登录
+              Return to Login
             </Button>
           </div>
         </CardContent>
