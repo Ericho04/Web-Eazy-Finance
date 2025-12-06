@@ -1,5 +1,6 @@
 {
     "name": "Smart Finance Management System (SFMS)",
+    "main": "electron.js",
     "version": "0.1.0",
     "private": true,
     "dependencies": {
@@ -52,10 +53,31 @@
     "devDependencies": {
         "@types/node": "^20.10.0",
         "@vitejs/plugin-react-swc": "^3.10.2",
+        "electron": "^39.2.6",
+        "electron-builder": "^26.0.12",
         "vite": "^6.4.1"
     },
     "scripts": {
         "dev": "vite",
-        "build": "vite build"
+        "build": "vite build",
+        "electron": "electron .",
+        "dist": "electron-builder"
+    },
+    "build": {
+        "appId": "com.sfms.adminpanel",
+        "productName": "SFMS Admin Panel",
+        "directories": {
+            "output": "release"
+        },
+        "files": [
+            "dist/**/*",
+            "electron.js",
+            "preload.js"
+        ],
+        "win": {
+            "target": [
+                "nsis"
+            ]
+        }
     }
 }
