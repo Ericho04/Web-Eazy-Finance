@@ -144,6 +144,9 @@ export default function AdminWebApp({ user, onLogout }: AdminWebAppProps) {
   const [prizeForm, setPrizeForm] = useState<Partial<Prize>>({});
   const [shopForm, setShopForm] = useState<Partial<ShopItem>>({});
 
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string>('');
+
   const [isPrizeFormValid, setIsPrizeFormValid] = useState(false);
   const [isShopItemFormValid, setIsShopItemFormValid] = useState(false);
 
@@ -193,7 +196,8 @@ export default function AdminWebApp({ user, onLogout }: AdminWebAppProps) {
           prize_won,
           created_at,
           user_id,
-          prizes (emoji, value)
+          prizes (emoji, value),
+          user_profiles (full_name)
         `)
         .order('created_at', { ascending: false })
         .limit(10);
@@ -207,7 +211,8 @@ export default function AdminWebApp({ user, onLogout }: AdminWebAppProps) {
           points_spent,
           created_at,
           user_id,
-          shop_items (name, emoji)
+          shop_items (name, emoji),
+          user_profiles (full_name)
         `)
         .order('created_at', { ascending: false })
         .limit(10);
@@ -291,9 +296,9 @@ export default function AdminWebApp({ user, onLogout }: AdminWebAppProps) {
     try {
       // 1. Recent User Activity
       const userActivityRes = await supabase.from('user_profiles')
-          .select('id, created_at, username, email')
-          .order('created_at', { ascending: false })
-          .limit(10);
+        .select('id, created_at, username, email')
+        .order('created_at', { ascending: false })
+        .limit(10);
 
       // 2. Recent Transaction History (lucky_draw + redeem merged)
       const { data: luckyDrawData } = await supabase
@@ -303,7 +308,8 @@ export default function AdminWebApp({ user, onLogout }: AdminWebAppProps) {
           prize_won,
           created_at,
           user_id,
-          prizes (emoji, value)
+          prizes (emoji, value),
+          user_profiles (full_name)
         `)
         .order('created_at', { ascending: false })
         .limit(10);
@@ -316,7 +322,8 @@ export default function AdminWebApp({ user, onLogout }: AdminWebAppProps) {
           points_spent,
           created_at,
           user_id,
-          shop_items (name, emoji)
+          shop_items (name, emoji),
+          user_profiles (full_name)
         `)
         .order('created_at', { ascending: false })
         .limit(10);
@@ -326,7 +333,7 @@ export default function AdminWebApp({ user, onLogout }: AdminWebAppProps) {
         id: d.draw_id,
         type: 'lucky_draw',
         description: `Won: ${d.prize_won || 'Prize'}`,
-        user: `User ${d.user_id}`,
+        user: d.user_profiles?.full_name || `User ${d.user_id}`,
         amount: d.prizes?.value || d.prize_won || '',
         created_at: d.created_at
       }));
@@ -335,7 +342,7 @@ export default function AdminWebApp({ user, onLogout }: AdminWebAppProps) {
         id: r.redeem_id,
         type: 'redeem',
         description: `Redeemed: ${r.item_name || r.shop_items?.name || 'Item'}`,
-        user: `User ${r.user_id}`,
+        user: r.user_profiles?.full_name || `User ${r.user_id}`,
         amount: `${r.points_spent || 0} pts`,
         created_at: r.created_at
       }));
@@ -367,7 +374,7 @@ export default function AdminWebApp({ user, onLogout }: AdminWebAppProps) {
           emoji: data.emoji
         }))
         .sort((a, b) => b.timesWon - a.timesWon)
-        .slice(0, 5);
+        .slice(0, 3);
 
       // 4. Top Shop Performance (group redeem by item_name/item_id)
       const { data: allRedeems } = await supabase
@@ -402,7 +409,7 @@ export default function AdminWebApp({ user, onLogout }: AdminWebAppProps) {
           emoji: data.emoji
         }))
         .sort((a, b) => b.timesPurchased - a.timesPurchased)
-        .slice(0, 5);
+        .slice(0, 3);
 
       setAnalyticsData({
         userActivity: userActivityRes.data ?? [],
@@ -464,11 +471,12 @@ export default function AdminWebApp({ user, onLogout }: AdminWebAppProps) {
   }, [prizeForm]);
 
   useEffect(() => {
-    const { name, description, pointsCost, stock, category, imageUrl } = shopForm;
+    const { name, description, pointsCost, stock, category } = shopForm;
+    // Validation: A new file is selected OR an existing imageUrl is present.
     setIsShopItemFormValid(
-      !!name && !!description && pointsCost != null && pointsCost > 0 && stock != null && stock >= 0 && !!category && !!imageUrl
+      !!name && !!description && pointsCost != null && pointsCost > 0 && stock != null && stock >= 0 && !!category && (!!imageFile || !!shopForm.imageUrl)
     );
-  }, [shopForm]);
+  }, [shopForm, imageFile]);
 
   // --- 视图切换 (View Switching) ---
 
@@ -552,6 +560,9 @@ export default function AdminWebApp({ user, onLogout }: AdminWebAppProps) {
 
   // [已连接] 打开 Shop 对话框
   const handleOpenShopDialog = (item: ShopItem | null = null) => {
+    setImageFile(null);
+    setImagePreview('');
+
     if (item) {
       setShopForm(item);
     } else {
@@ -566,15 +577,41 @@ export default function AdminWebApp({ user, onLogout }: AdminWebAppProps) {
         isLimited: false,
       });
     }
+    if (item?.imageUrl) {
+      setImagePreview(item.imageUrl);
+    }
     setShowShopDialog(true);
   };
 
   // [已连接] 保存 Shop Item (创建或更新)
   const handleSaveShopItem = async () => {
     setIsSaving(true);
+    let finalImageUrl = shopForm.imageUrl || '';
+
+    if (imageFile) {
+      const fileExt = imageFile.name.split('.').pop();
+      const filePath = `shop-items/${Date.now()}.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("Image")
+        .upload(filePath, imageFile);
+
+      if (uploadError) {
+        toast.error('Failed to upload image.', { description: uploadError.message });
+        setIsSaving(false);
+        return;
+      }
+
+      const { data: urlData } = supabase.storage
+        .from("Image")
+        .getPublicUrl(filePath);
+
+      finalImageUrl = urlData.publicUrl;
+    }
 
     const itemToSave = {
       ...shopForm,
+      imageUrl: finalImageUrl,
       pointsCost: Number(shopForm.pointsCost) || 0,
       stock: Number(shopForm.stock) || 0,
     };
@@ -933,7 +970,7 @@ export default function AdminWebApp({ user, onLogout }: AdminWebAppProps) {
                 </TableHeader>
                 <TableBody>
                   {analyticsData.transactionHistory.length === 0 ? (
-                     <TableRow><TableCell colSpan={4} className="text-center h-24">No transaction history found.</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={4} className="text-center h-24">No transaction history found.</TableCell></TableRow>
                   ) : analyticsData.transactionHistory.map((tx, index) => (
                     <TableRow key={index}>
                       <TableCell>{tx.user}</TableCell>
@@ -967,7 +1004,7 @@ export default function AdminWebApp({ user, onLogout }: AdminWebAppProps) {
                 </TableHeader>
                 <TableBody>
                   {analyticsData.prizeDistribution.length === 0 ? (
-                     <TableRow><TableCell colSpan={3} className="text-center h-24">No prizes have been won yet.</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={3} className="text-center h-24">No prizes have been won yet.</TableCell></TableRow>
                   ) : analyticsData.prizeDistribution.map((prize) => (
                     <TableRow key={prize.id}>
                       <TableCell>{prize.name}</TableCell>
@@ -998,7 +1035,7 @@ export default function AdminWebApp({ user, onLogout }: AdminWebAppProps) {
                 </TableHeader>
                 <TableBody>
                   {analyticsData.shopPerformance.length === 0 ? (
-                     <TableRow><TableCell colSpan={3} className="text-center h-24">No shop items have been purchased yet.</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={3} className="text-center h-24">No shop items have been purchased yet.</TableCell></TableRow>
                   ) : analyticsData.shopPerformance.map((item) => (
                     <TableRow key={item.id}>
                       <TableCell>{item.name}</TableCell>
@@ -1117,9 +1154,9 @@ export default function AdminWebApp({ user, onLogout }: AdminWebAppProps) {
           {/* Header (已修复) */}
           <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
             <div className="flex h-16 items-center px-6">
-             <div className="flex items-center gap-4">
-               <SidebarTrigger className="lg:hidden" />
-               <div className="relative">
+              <div className="flex items-center gap-4">
+                <SidebarTrigger className="lg:hidden" />
+                <div className="relative">
                   <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                   <Input
                     type="search"
@@ -1127,9 +1164,9 @@ export default function AdminWebApp({ user, onLogout }: AdminWebAppProps) {
                     className="pl-8 sm:w-[300px] md:w-[200px] lg:w-[300px]"
                   />
                 </div>
-             </div>
+              </div>
 
-             <div className="flex items-center gap-4 ml-auto">
+              <div className="flex items-center gap-4 ml-auto">
                 <Button variant="ghost" size="icon" className="rounded-full">
                   <Bell className="h-5 w-5" />
                 </Button>
@@ -1273,8 +1310,32 @@ export default function AdminWebApp({ user, onLogout }: AdminWebAppProps) {
                   <Textarea id="shop-desc" placeholder="Brief description of the item" value={shopForm.description || ''} onChange={(e) => setShopForm(prev => ({ ...prev, description: e.target.value }))} />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="shop-image">Image URL</Label>
-                  <Input id="shop-image" placeholder="https://example.com/image.png" value={shopForm.imageUrl || ''} onChange={(e) => setShopForm(prev => ({ ...prev, imageUrl: e.target.value }))} />
+                  <Label htmlFor="image-upload">Item Image</Label>
+                  <div className="mt-1 flex items-center gap-4">
+                    {imagePreview ? (
+                      <img src={imagePreview} alt="Image preview" className="h-20 w-20 object-cover rounded-md border" />
+                    ) : (
+                      <div className="h-20 w-20 flex items-center justify-center rounded-md bg-muted text-muted-foreground">
+                        <ShoppingCart className="h-8 w-8" />
+                      </div>
+                    )}
+                    <div className="flex flex-col gap-2">
+                      <Label
+                        htmlFor="image-upload"
+                        className="cursor-pointer inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2"
+                      >
+                        Choose Image
+                      </Label>
+                      <input
+                        id="image-upload"
+                        name="image-upload"
+                        type="file"
+                        accept="image/*"
+                        className="sr-only"
+                        onChange={(e) => { if (e.target.files && e.target.files[0]) { const file = e.target.files[0]; setImageFile(file); setImagePreview(URL.createObjectURL(file)); } }}
+                      />
+                    </div>
+                  </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">

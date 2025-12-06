@@ -5,12 +5,14 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="6749706f-de7e-4228-80f2-76411be4d1e7" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/caches/deviceStreaming.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/caches/deviceStreaming.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/components/SimpleEmojiPicker.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/SimpleEmojiPicker.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/components/auth/AdminPasswordReset.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/auth/AdminPasswordReset.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/components/auth/AdminProfileSetup.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/auth/AdminProfileSetup.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/components/auth/LoginPage.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/auth/LoginPage.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/AdminWebApp.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/AdminWebApp.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/components/BottomNavigation.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/components/Dashboard.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/components/Insights.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/components/LuckyDraw.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/components/RewardsShop.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/components/Settings.tsx" beforeDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
