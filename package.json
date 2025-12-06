@@ -1,5 +1,5 @@
 {
-    "name": "Smart Finance Management System (SFMS)",
+    "name": "efms-admin-panel",
     "main": "electron.js",
     "version": "0.1.0",
     "private": true,
@@ -64,8 +64,8 @@
         "dist": "electron-builder"
     },
     "build": {
-        "appId": "com.sfms.adminpanel",
-        "productName": "SFMS Admin Panel",
+        "appId": "com.efms.adminpanel",
+        "productName": "EFMS Admin Panel",
         "directories": {
             "output": "release"
         },

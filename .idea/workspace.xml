@@ -4,7 +4,11 @@
     <option name="autoReloadType" value="NONE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="6749706f-de7e-4228-80f2-76411be4d1e7" name="Changes" comment="" />
+    <list default="true" id="6749706f-de7e-4228-80f2-76411be4d1e7" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/electron.js" beforeDir="false" afterPath="$PROJECT_DIR$/electron.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/package.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/vite.config.ts" beforeDir="false" afterPath="$PROJECT_DIR$/vite.config.ts" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
